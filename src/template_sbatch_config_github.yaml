@@ -1,10 +1,10 @@
 # general
-default_account: <PROJECT>
+default_account: ukaea-ap001-gpu
 default_qos: <QOS>
 
 # working/log directories
-chdir: <WORK_DIR>
-output: <LOG_DIR>/%j.out
+chdir: /home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT
+output: /home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/%j.out
 
 # environment setup
 master_port: 55555

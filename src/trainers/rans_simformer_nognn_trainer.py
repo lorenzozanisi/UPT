@@ -28,6 +28,7 @@ class RansSimformerNognnTrainer(SgdTrainer):
         dataset, collator = self.data_container.get_dataset("train", mode="mesh_pos")
         assert isinstance(collator.collator, RansSimformerNognnCollator)
         mesh_pos, _ = dataset[0]
+      
         # mesh_pos has shape (num_points, ndim)
         assert mesh_pos.ndim == 2 and 2 <= mesh_pos.size(1) <= 3
         return None, mesh_pos.size(1)

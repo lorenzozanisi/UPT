@@ -1,4 +1,4 @@
-wandb: cvsim
+wandb: wandb_config
 name: snc-all-nosdf-e1000-subsam08to1-lr5e4-perconly-seqlen64-dim1024x12-wd5-sd03unif-uselastnorm
 stage_name: stage1
 vars:
@@ -19,7 +19,7 @@ datasets:
   train:
     kind: shapenet_car
     split: train
-    num_input_points_ratio: [ 0.8, 1.0 ]
+   # num_input_points_ratio: [ 0.8, 1.0 ]
     collators:
       - kind: rans_simformer_nognn_collator
   test:

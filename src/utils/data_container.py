@@ -73,6 +73,7 @@ class DataContainer:
                 )
             else:
                 collator = None
+           # print('DATASET COLLATOR', dataset, collator)
             return dataset, collator
         return dataset
 

@@ -70,6 +70,7 @@ def instantiate(module_names, type_names, error_on_not_found=True, ctor_kwargs=N
                     optional_kwargs.pop(key)
         else:
             optional_kwargs = {}
+
         return obj_type(**kwargs, **ctor_kwargs, **optional_kwargs)
     except TypeError as e:
         logging.error(f"error creating object of type {obj_type.__name__}: {e}")
@@ -94,6 +95,7 @@ def type_from_name(module_names, type_names, error_on_not_found=True):
 
         type_ = _get_type_from_module(module, type_name)
         if type_ is not None:
+           # print('TYYYYPE ', type_)
             return type_
 
     # check if module was set in code (used for unittesting)

@@ -195,6 +195,8 @@ def _log_device_info(accelerator, device_ids):
         # retrieve device names via nvidia-smi because CUDA_VISIBLE_DEVICES needs to be set before calling anything
         # in torch.cuda -> only 1 visible device
         all_devices = os.popen("nvidia-smi --query-gpu=gpu_name --format=csv,noheader").read().strip().split("\n")
+        if not isinstance(all_devices, list):
+            all_devices = [all_devices]
         for i, device_id in enumerate(device_ids):
             try:
                 device_id = int(device_id)

@@ -85,7 +85,9 @@ class ShapenetCar(DatasetBase):
         self.std = torch.tensor(48.5743)
 
         # source_root
+
         global_root, local_root = self._get_roots(global_root, local_root, "shapenet_car")
+
         if local_root is None:
             # load data from global_root
             self.source_root = global_root / "preprocessed"

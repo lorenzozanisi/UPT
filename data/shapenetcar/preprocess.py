@@ -40,6 +40,7 @@ def sdf(mesh, resolution):
     quad_to_tri = out0[mask]
 
     cells = [("triangle", quad_to_tri)]
+    print(cells)
 
     new_mesh = meshio.Mesh(mesh.points, cells)
 
@@ -84,23 +85,29 @@ def main(src, dst):
     # .vtk files contains points that dont belong to the mesh -> filter them out
     mesh_point_counts = []
     for uri in tqdm(uris):
+        print("Processing ", uri)
         reluri = uri.relative_to(src)
         out = dst / reluri
         out.mkdir(exist_ok=True, parents=True)
 
         # filter out mesh points that are not part of the shape
         mesh = meshio.read(uri / "quadpress_smpl.vtk")
+        print(uri,mesh)
         assert len(mesh.cells) == 1
         cell_block = mesh.cells[0]
         assert cell_block.type == "quad"
         unique = np.unique(cell_block.data)
+        print(unique)
         mesh_point_counts.append(len(unique))
-        mesh_points = torch.from_numpy(mesh.points[unique]).float()
+        mesh_points = torch.from_numpy(mesh.points[unique]).float() # What does this do? ***
         pressure = torch.from_numpy(np.load(uri / "press.npy")[unique]).float()
+
         torch.save(mesh_points, out / "mesh_points.th")
+        print(mesh_points)
+        
         torch.save(pressure, out / "pressure.th")
 
-        # generate sdf
+        # -- generate sdf
         for resolution in [32, 40, 48, 64, 80]:
             torch.save(sdf(mesh, resolution=resolution), out / f"sdf_res{resolution}.th")
 
@@ -109,3 +116,35 @@ def main(src, dst):
 
 if __name__ == "__main__":
     main(**parse_args())
+
+
+
+# 
+# Basically this means that len(mesh.points)>len(unique) that is there are more mesh points than IDs used to define the mesh elelements (like quadrilatera).
+# See chatGPT answer below.
+
+# ***The difference between `len(mesh.points)` and `len(unique)` lies in how the points are organized and used within the mesh, and it’s quite common in mesh-based simulations. Here’s a breakdown of why `len(mesh.points) > len(unique)` can occur:
+
+# 1. **`mesh.points` Contains All Defined Points**:
+#    - `mesh.points` includes **all vertices** defined in the mesh file. These points are indexed and available to be used by any cell in the mesh, even if not all of them are actually needed by the cells that define the object geometry.
+#    - Think of `mesh.points` as a master list of all points, some of which might not be connected to any cell in your analysis.
+
+# 2. **Not All Points Are Used in Cells**:
+#    - Sometimes, a mesh file includes extra points that aren’t actually part of any cell. This could happen, for example, if the mesh was modified or if parts of the original object were removed, but the points were left in the file.
+#    - In such cases, `np.unique(cell_block.data)` would retrieve only the indices of the points actually referenced by cells, ignoring any unused points.
+
+# 3. **Shared Points Between Cells**:
+#    - Multiple quadrilateral cells can share vertices. For instance, if two adjacent cells share an edge, the four vertices defining that edge are reused between the two cells.
+#    - This reuse of vertices means that when you get the unique indices from all cell data, many vertices will be counted only once, even though they appear multiple times across cells.
+
+# ### Example Scenario
+
+# Consider a simple scenario to make this clearer:
+
+# - Suppose `mesh.points` contains 10 points, but only points 0 through 5 are used to define the cells in the mesh.
+# - If you extract unique point indices from the cells (using `np.unique`), you’d end up with only 6 unique points (0 to 5).
+# - This would result in `len(mesh.points) = 10`, while `len(unique) = 6`.
+
+# ### Why This Matters
+
+# By using only the unique points associated with cells, the code focuses on points that are actually part of the object’s geometry, filtering out extraneous points that don’t contribute to the final representation. This process improves efficiency, especially in large meshes where unused points or repeated vertices can increase the data size unnecessarily.

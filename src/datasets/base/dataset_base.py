@@ -22,6 +22,7 @@ class DatasetBase(KDDataset):
 
     def _get_roots(self, global_root, local_root, dataset_identifier):
         # automatically populate global_root/local_root if they are not defined explicitly
+
         global_root = self._get_global_root(global_root, dataset_identifier)
         if local_root is None:
             if self.dataset_config_provider is not None:
