@@ -27,7 +27,6 @@ class Edge2DSimformerNognnTrainer(SgdTrainer):
     def input_shape(self):
         dataset, collator = self.data_container.get_dataset("train", mode="mesh_pos")
         assert isinstance(collator.collator, Edge2DSimformerNognnCollator)
-        print('DDAAAAAA', dataset, collator)
         mesh_pos, _ = dataset[0]
 
         # mesh_pos has shape (num_points, ndim)

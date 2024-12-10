@@ -116,7 +116,6 @@ class Edge2D(DatasetBase):
                 self.uris.append(uri)
 
         # split into train/test uris
-        print(self.uris)
         if split == "train":
             train_idx = 0 # [i for i in range(len(self.uris)) if i not in self.TEST_INDICES][0]
             self.uris = [self.uris[train_idx]]# for train_idx in train_idxs]
