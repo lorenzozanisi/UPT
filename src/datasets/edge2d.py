@@ -2,6 +2,7 @@ import einops
 import scipy
 import os
 import shutil
+from functools import lru_cache
 
 import meshio
 import h5py
@@ -47,9 +48,11 @@ class Edge2d(DatasetBase):
             global_root=None,
             local_root=None,
             seed=None,
+            conditioning_vars=None,
             **kwargs,
     ):
         super().__init__(**kwargs)
+        self.conditioning_vars = conditioning_vars
         self.split = split
         self.radius_graph_r = radius_graph_r
         self.radius_graph_max_num_neighbors = radius_graph_max_num_neighbors or int(1e10)
@@ -74,11 +77,10 @@ class Edge2d(DatasetBase):
         self.standardize_query_pos = standardize_query_pos
         self.concat_pos_to_sdf = concat_pos_to_sdf
 
-        # TODO: make this for all the output variables AND output variables
         self.mean = {}
         self.std = {}
-        self.mean['electron_temp_2d'] = torch.tensor(136.75)
-        self.std['electron_temp_2d'] = torch.tensor(817.87)
+        self.mean['target'] = torch.tensor(136.75)
+        self.std['target'] = torch.tensor(817.87)
        # self.mean['connection_length'] = torch.tensor(16.74)
        # self.std['connection_length'] = torch.tensor(30.87)
 
@@ -129,31 +131,103 @@ class Edge2d(DatasetBase):
     def __len__(self):
         return len(self.uris)
 
-
+    #  TODO: finish below here
+    # def getshape_target(self):
+    #     sim_name, timestep_to_fname = self.samples[0]
+    #     num_channels = torch.load(self.source_root / sim_name / timestep_to_fname[0]).T.size(1)
+    #     return None, num_channels
+    
     # noinspection PyUnusedLocal
-    def getitem_electron_temp_2d(self, idx, ctx=None):
+    def getitem_target(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"simulation_{idx}"]["electron_temp_2d"][:]
+            tmp = h5file[f"targets"]["target"][:]
         tmp = torch.from_numpy(tmp)
-        tmp -= self.mean["electron_temp_2d"]
-        tmp /= self.std["electron_temp_2d"]
+        tmp -= self.mean["target"]
+        tmp /= self.std["target"]
         return tmp 
 
+    def getnames_conditioning_vars(self):
+        return self.conditioning_vars
+    
     def getitem_connection_length(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"simulation_{idx}"]["connection_length"][:]
+            tmp = h5file["conditioning"]["connection_length"][:]
         tmp = torch.tensor(tmp)
         tmp -= self.mean["connection_length"]
         tmp /= self.std["connection_length"]
         return tmp
+
+    def getitem_psep(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["psep"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["psep"]
+        tmp /= self.std["psep"]
+        return tmp
+
+    def getitem_pumped_neutral_flux(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["pumped_neutral_flux"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["pumped_neutral_flux"]
+        tmp /= self.std["pumped_neutral_flux"]
+        return tmp
+
+    def getitem_inner_avg_albedo(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["inner_avg_albedo"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["inner_avg_albedo"]
+        tmp /= self.std["inner_avg_albedo"]
+        return tmp            
+
+    def getitem_outer_avg_albedo(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["outer_avg_albedo"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["outer_avg_albedo"]
+        tmp /= self.std["outer_avg_albedo"]
+        return tmp            
+    
+    def getitem_particle_flux_omp(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["particle_flux_omp"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["particle_flux_omp"]
+        tmp /= self.std["particle_flux_omp"]
+        return tmp            
+
+    def getitem_pumped_neutral_flux(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["pumped_neutral_flux"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["pumped_neutral_flux"]
+        tmp /= self.std["pumped_neutral_flux"]
+        return tmp            
+
+    def getitem_flux_expansion(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["flux_expansion"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["flux_expansion"]
+        tmp /= self.std["flux_expansion"]
+        return tmp                        
+
+    def getitem_strike_point_poloidal_angle(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file["conditioning"]["strike_point_poloidal_angle"][:]
+        tmp = torch.tensor(tmp)
+        tmp -= self.mean["strike_point_poloidal_angle"]
+        tmp /= self.std["strike_point_poloidal_angle"]
+        return tmp                        
     
     def getitem_grid_utils(self, idx):
         with h5py.File(self.uris[idx], "r") as h5file:
-            korpg = h5file[f"simulation_{idx}"]["korpg"][:]
-            nvertp = h5file[f"simulation_{idx}"]["nvertp"][:]
-            zvertp = h5file[f"simulation_{idx}"]["zvertp"][:]
-            rvertp = h5file[f"simulation_{idx}"]["rvertp"][:]
-            nump = h5file[f"simulation_{idx}"]["np"][:]            
+            korpg = h5file["plotting_utils"]["korpg"][:]
+            nvertp = h5file["plotting_utils"]["nvertp"][:]
+            zvertp = h5file["plotting_utils"]["zvertp"][:]
+            rvertp = h5file["plotting_utils"]["rvertp"][:]
+            nump = h5file["plotting_utils"]["np"][:]            
         return korpg, nvertp, zvertp, rvertp, nump    
 
     # noinspection PyUnusedLocal
@@ -236,8 +310,8 @@ class Edge2d(DatasetBase):
         if ctx is not None and "all_pos" in ctx:
             return ctx["all_pos"]
         with h5py.File(self.uris[idx], 'r') as h5file:
-            r = h5file[f"simulation_{idx}"]["rmesh2d"][:]
-            z = h5file[f"simulation_{idx}"]["zmesh2d"][:]
+            r = h5file[f"mesh2d"]["rmesh2d"][:]
+            z = h5file[f"mesh2d"]["zmesh2d"][:]
         all_pos = torch.from_numpy(np.vstack((r,z)).T)
         #all_pos = torch.load(self.uris[idx] / "mesh_points.th")
         # rescale for sincos positional embedding

@@ -40,7 +40,11 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "electron_temp_2d mesh_pos query_pos"
+        return "target mesh_pos query_pos"
+
+    @cached_property
+    def get_conditioning_vars_names(self):
+        return self.data_container.get_dataset().getnames_conditioning_vars()
 
     def get_trainer_model(self, model):
         return self.Model(model=model, trainer=self)
@@ -58,21 +62,29 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
         def prepare(self, batch):
             batch, ctx = batch
-            return dict(
+            conditioning_vars_names = self.trainer.get_conditioning_vars_names()
+
+            conditioning_vars = dict(
+                (var_name,self.to_device(item=var_name, batch=batch, dataset_mode=self.trainer.dataset_mode)) for var_name in conditioning_vars_names
+                )
+            data = dict(
+                # Util variables
                 mesh_pos=self.to_device(item="mesh_pos", batch=batch),
-                query_pos=self.to_device(item="query_pos", batch=batch),
+                query_pos=self.to_device(item="query_pos", batch=batch),   
                 batch_idx=ctx["batch_idx"].to(self.model.device, non_blocking=True),
                 unbatch_idx=ctx["unbatch_idx"].to(self.model.device, non_blocking=True),
                 unbatch_select=ctx["unbatch_select"].to(self.model.device, non_blocking=True),
-                target=self.to_device(item="electron_temp_2d", batch=batch),
+                # Target variables
+                target=self.to_device(item="target", batch=batch),
             )
+            return data, conditioning_vars
 
         def forward(self, batch, reduction="mean"):
-            data = self.prepare(batch)
+            data, conditioning_vars = self.prepare(batch)
             target = data.pop("target")
 
             # forward pass
-            model_outputs = self.model(**data)
+            model_outputs = self.model(conditioning_vars,**data)
             loss = self.trainer.loss_function(
                 prediction=model_outputs["x_hat"],
                 target=target,

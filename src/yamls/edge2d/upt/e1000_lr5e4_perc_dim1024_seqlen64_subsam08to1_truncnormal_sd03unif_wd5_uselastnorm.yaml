@@ -31,6 +31,10 @@ datasets:
 
 model:
   kind: edge2d_simformer_nognn_model
+  conditioner:
+    kind: conditioners.edge2d_conditioner
+    kwargs: ${select:dim128:${yaml:models/dim}}
+    optim: ${vars.optim}
   encoder:
     kind: encoders.edge2d_perceiver
     num_output_tokens: 64

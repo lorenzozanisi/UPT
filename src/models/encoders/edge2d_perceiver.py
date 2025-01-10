@@ -63,7 +63,7 @@ class Edge2dPerceiver(SingleModelBase):
             modifiers += [ExcludeFromWdByNameModifier(name="type_token")]
         return modifiers
 
-    def forward(self, mesh_pos, batch_idx, mesh_edges=None):
+    def forward(self, mesh_pos, batch_idx, condition=None, mesh_edges=None):
         x = self.pos_embed(mesh_pos)
         x, mask = to_dense_batch(x, batch_idx)
         if torch.all(mask):
