@@ -1,6 +1,6 @@
 import wandb
 from models import model_from_kwargs
-from datasets.edge2d import Edge2D
+from datasets.edge2d import Edge2d
 from pathlib import Path, PurePath
 from configs.static_config import StaticConfig
 from datasets import dataset_from_kwargs
@@ -21,44 +21,43 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import sys
 from scipy.interpolate import griddata
 
-# def plot():
-#     nump = len(nvertp)
-#     fig, ax = plt.subplots(1,1)
-#     mesh=[]
-#     total_points = []
-#     for i in range(len(nvertp)):
-#     #  color='r' if nvertp.data[i]==4 else 'g'
-#     j = nvertp[i]
-#     points = np.transpose(np.concatenate(([rvertp[5*i:5*i+j]], [-zvertp[5*i:5*i+j]]), axis=0))
-#     total_points.append(points)
-#     polygon = Polygon(xy=points,closed= True)
-#     mesh.append(polygon)
+def plot(nvertp, rvertp, zvertp, korpg, fig, field, ax):
+    nump = len(nvertp)
+    mesh=[]
+    total_points = []
+    for i in range(len(nvertp)):
+        j = nvertp[i]
+        points = np.transpose(np.concatenate(([rvertp[5*i:5*i+j]], [-zvertp[5*i:5*i+j]]), axis=0))
+        total_points.append(points)
+        polygon = Polygon(xy=points,closed= True)
+        mesh.append(polygon)
 
+    #fieldPolyg=field[korpg[korpg!=0]]
+    fieldPolyg=np.zeros(nump)
+    for i in range(nump):
+        if korpg[i] > 0:
+            fieldPolyg[korpg[i]-1]=field[i]
 
-#     field=te
-#     #fieldPolyg=field[korpg[korpg!=0]]
-#     fieldPolyg=np.zeros(nump)
-#     for i in range(nump):
-#         if korpg[i] > 0:
-#             fieldPolyg[korpg[i]-1]=field[i]
+    assert len(fieldPolyg)== len(mesh)
+    assert not np.isnan(fieldPolyg).any()
+    p = PatchCollection(mesh,cmap='rainbow') #,norm=matplotlib.colors.SymLogNorm(linthresh=5e3))
+    p.set_array(np.array(fieldPolyg))
 
-#     assert len(fieldPolyg)== len(mesh)
-#     assert not np.isnan(fieldPolyg).any()
-#     p = PatchCollection(mesh,cmap='rainbow') #,norm=matplotlib.colors.SymLogNorm(linthresh=5e3))
-#     p.set_array(np.array(fieldPolyg))
+    im = ax.add_collection(p)
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label('Te (eV)')
 
-#     ax.add_collection(p)
+    ax.set_xlabel("R(m)")
+    ax.set_ylabel("Z(m)")
+    ax.set_title("Te")
+    total_points = np.vstack(total_points)
+    ax.set_ylim(np.min(total_points[:,1]),np.max(total_points[:,1]))
+    ax.set_xlim(np.min(total_points[:,0]),np.max(total_points[:,0]))
 
-
-#     plt.xlabel("R(m)")
-#     plt.ylabel("Z(m)")
-#     plt.title("Te")
-#     total_points = np.vstack(total_points)
-#     plt.ylim(np.min(total_points[:,1]),np.max(total_points[:,1]))
-#     plt.xlim(np.min(total_points[:,0]),np.max(total_points[:,0]))
+    return ax
 
 print('Loading config')
-wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/tfa0okoj/')
+wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/95gurh8r/')
 hp_resolved = PurePath('hp_resolved.yaml')
 cfg_path = wandb_path / hp_resolved
 
@@ -92,7 +91,6 @@ edge2d = dataset_from_kwargs(
                 path_provider=path_provider,
                 **cfg["datasets"]["test"],
             )
-#dataset = Edge2D(**cfg["datasets"]["test"]) # -- how does the model ingest data to make a prediction? MAybe just load a specific example and feed it straight to the model
 print('preparing model')
 model = model_from_kwargs(
     **cfg["model"],
@@ -111,15 +109,36 @@ for submodel_name, submodel in submodel_dict.items():
     prefix = f"{model_kind}.{submodel_name} "
     best_chkpt = "cp=best_model.loss.test.total model.th"
     chkpt_path = checkpoints_dir / f"{prefix}{best_chkpt}"
-    #assert Path(chkpt_path).as_posix(), f'Path {chkpt_path} does not exist'
+    #assert Path(chkpt_path).as_posix(), f'Path {chkpt_path} does not exist'[=]
+    print(f'Loading model {chkpt_path}')
     submodel.load_state_dict(torch.load(chkpt_path)["state_dict"])
     
-        #print(f"loading from {chkpt_path}")
-# print(checkpoints_dir)
-# checkpoints = os.listdir(checkpoints_dir)
+idx = 9
+electron_temp = edge2d.getitem_electron_temp_2d(idx=idx)
+korpg, nvertp, zvertp, rvertp, nump = edge2d.getitem_grid_utils(idx=idx)
+input_mesh = edge2d.getitem_mesh_pos(idx=idx)
+query_mesh = edge2d.getitem_query_pos(idx=idx)
 
-# for key, submodel in submodel_dict.items():
-#     print(f'loading model {key} from {checkpoints_dir}')
-#     submodel_checkpoint_idx = np.where( np.array([this_file.find(key) for this_file in checkpoints])!=-1)[0][0]
-#     submodel_checkpoint = wandb_path / checkpoints[submodel_checkpoint_idx]
-#     submodel.load_state_dict(torch.load(submodel_checkpoint))
+temp_mean = edge2d.mean["electron_temp_2d"]
+temp_std = edge2d.std["electron_temp_2d"]
+
+out = model.forward(input_mesh,
+                               torch.unsqueeze(query_mesh, dim=1),
+                               batch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
+                               unbatch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
+                               unbatch_select=[0]
+                               )
+predicted_temp = out["x_hat"]
+
+electron_temp = electron_temp*temp_std+temp_mean
+predicted_temp = predicted_temp*temp_std+temp_mean
+fig, ax = plt.subplots(1,2, figsize=(8,5))
+
+ax[0] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=predicted_temp,  ax=ax[0]  )
+ax[1] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=electron_temp,  ax=ax[1]   )
+
+ax[0].set_title('Te predicted')
+ax[1].set_title('Te true')
+fig.tight_layout()
+fig.savefig(f'../plots/overfitted_{idx}.png')
+

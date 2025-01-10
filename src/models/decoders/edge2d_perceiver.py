@@ -7,7 +7,7 @@ from torch import nn
 from models.base.single_model_base import SingleModelBase
 
 
-class Edge2DPerceiver(SingleModelBase):
+class Edge2dPerceiver(SingleModelBase):
     def __init__(
             self,
             dim,

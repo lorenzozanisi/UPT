@@ -6,13 +6,13 @@ from torch import nn
 from torch_scatter import segment_csr
 
 from callbacks.online_callbacks.update_output_callback import UpdateOutputCallback
-from datasets.collators.edge2d_simformer_nognn_collator import Edge2DSimformerNognnCollator
+from datasets.collators.edge2d_simformer_nognn_collator import Edge2dSimformerNognnCollator
 from losses import loss_fn_from_kwargs
 from utils.factory import create
 from .base.sgd_trainer import SgdTrainer
 
 
-class Edge2DSimformerNognnTrainer(SgdTrainer):
+class Edge2dSimformerNognnTrainer(SgdTrainer):
     def __init__(self, loss_function, max_batch_size=None, **kwargs):
         # automatic batchsize is not supported with mesh data
         disable_gradient_accumulation = max_batch_size is None
@@ -26,7 +26,7 @@ class Edge2DSimformerNognnTrainer(SgdTrainer):
     @cached_property
     def input_shape(self):
         dataset, collator = self.data_container.get_dataset("train", mode="mesh_pos")
-        assert isinstance(collator.collator, Edge2DSimformerNognnCollator)
+        assert isinstance(collator.collator, Edge2dSimformerNognnCollator)
         mesh_pos, _ = dataset[0]
 
         # mesh_pos has shape (num_points, ndim)

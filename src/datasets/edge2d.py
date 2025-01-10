@@ -14,7 +14,7 @@ from distributed.config import barrier, is_data_rank0
 from .base.dataset_base import DatasetBase
 
 
-class Edge2D(DatasetBase):
+class Edge2d(DatasetBase):
     # TODO: change
     TEST_INDICES = {
         550, 592, 229, 547, 62, 464, 798, 836, 5, 732, 876, 843, 367, 496,
@@ -129,6 +129,7 @@ class Edge2D(DatasetBase):
     def __len__(self):
         return len(self.uris)
 
+
     # noinspection PyUnusedLocal
     def getitem_electron_temp_2d(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
@@ -145,6 +146,15 @@ class Edge2D(DatasetBase):
         tmp -= self.mean["connection_length"]
         tmp /= self.std["connection_length"]
         return tmp
+    
+    def getitem_grid_utils(self, idx):
+        with h5py.File(self.uris[idx], "r") as h5file:
+            korpg = h5file[f"simulation_{idx}"]["korpg"][:]
+            nvertp = h5file[f"simulation_{idx}"]["nvertp"][:]
+            zvertp = h5file[f"simulation_{idx}"]["zvertp"][:]
+            rvertp = h5file[f"simulation_{idx}"]["rvertp"][:]
+            nump = h5file[f"simulation_{idx}"]["np"][:]            
+        return korpg, nvertp, zvertp, rvertp, nump    
 
     # noinspection PyUnusedLocal
     def getitem_grid_pos(self, idx=None, ctx=None):

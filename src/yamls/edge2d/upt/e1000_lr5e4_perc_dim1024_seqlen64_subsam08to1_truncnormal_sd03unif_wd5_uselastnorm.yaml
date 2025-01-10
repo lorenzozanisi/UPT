@@ -5,7 +5,8 @@ vars:
   lr: 5.0e-4
   batch_size: 1
   max_batch_size: 1
-  epochs: 50
+  epochs: 5000
+
 
   optim:
     kind: adamw
