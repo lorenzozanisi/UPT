@@ -1,7 +1,9 @@
+from functools import partial
+
 import einops
 import torch
 from kappamodules.layers import ContinuousSincosEmbed
-from kappamodules.transformer import PerceiverPoolingBlock, Mlp
+from kappamodules.transformer import PerceiverPoolingBlock, Mlp, PerceiverPoolingBlock, DitPerceiverPoolingBlock
 from torch import nn
 from torch_geometric.utils import to_dense_batch
 
@@ -35,15 +37,34 @@ class Edge2dPerceiver(SingleModelBase):
 
         # perceiver
         self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
-        self.block = PerceiverPoolingBlock(
+        if "condition_dim" in self.static_ctx:
+            block_ctor = partial(
+                DitPerceiverPoolingBlock,
+                perceiver_kwargs=dict(
+                    cond_dim=self.static_ctx["condition_dim"],
+                    init_weights=init_weights,
+                ),
+            )
+        else:
+            block_ctor = partial(
+                PerceiverPoolingBlock,
+                perceiver_kwargs=dict(init_weights=init_weights),
+            )
+
+        # self.block = PerceiverPoolingBlock(
+        #     dim=dim,
+        #     num_heads=num_attn_heads,
+        #     num_query_tokens=num_output_tokens,
+        #     perceiver_kwargs=dict(
+        #         init_weights=init_weights,
+        #         init_last_proj_zero=init_last_proj_zero,
+        #     ),
+        # )
+        self.block = block_ctor(
             dim=dim,
             num_heads=num_attn_heads,
             num_query_tokens=num_output_tokens,
-            perceiver_kwargs=dict(
-                init_weights=init_weights,
-                init_last_proj_zero=init_last_proj_zero,
-            ),
-        )
+        )            
 
         if add_type_token:
             self.type_token = nn.Parameter(torch.empty(size=(1, 1, dim,)))
@@ -72,9 +93,12 @@ class Edge2dPerceiver(SingleModelBase):
             # add dimensions for num_heads and query (keys are masked)
             mask = einops.rearrange(mask, "batchsize num_nodes -> batchsize 1 1 num_nodes")
 
-        # perceiver
+        block_kwargs = {}
+        if condition is not None:
+            block_kwargs["cond"] = condition
+        # perceiver - NOTE: attn_mask is not used in the cfd cases?
         x = self.mlp(x)
-        x = self.block(kv=x, attn_mask=mask)
+        x = self.block(kv=x, attn_mask=mask, **block_kwargs) 
 
         if self.add_type_token:
             x = x + self.type_token

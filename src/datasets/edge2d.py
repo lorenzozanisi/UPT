@@ -140,7 +140,7 @@ class Edge2d(DatasetBase):
     # noinspection PyUnusedLocal
     def getitem_target(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"targets"]["target"][:]
+            tmp = h5file[f"targets2d"]["target"][:]
         tmp = torch.from_numpy(tmp)
         tmp -= self.mean["target"]
         tmp /= self.std["target"]
@@ -262,6 +262,11 @@ class Edge2d(DatasetBase):
         # edges is (num_points, 2)
         return edges
 
+    def getshape_target(self):
+        with h5py.File(self.uris[0], 'r') as h5file:
+            tmp = h5file[f"targets2d"]["target"][:]
+        return None, tmp.shape[1]
+    
     def getitem_grid_to_query_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None

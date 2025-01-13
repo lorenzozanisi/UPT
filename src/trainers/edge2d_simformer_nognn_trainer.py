@@ -35,8 +35,11 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
     @cached_property
     def output_shape(self):
-        # pressure is predicted
-        return None, 1
+        dataset, collator = self.data_container.get_dataset("train", mode="x")
+        assert isinstance(collator.collator, Edge2dSimformerNognnCollator )
+        output_shape = dataset.getshape_target()
+        self.logger.info(f"output_shape: {output_shape}")
+        return output_shape
 
     @cached_property
     def dataset_mode(self):

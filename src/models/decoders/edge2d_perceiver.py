@@ -1,7 +1,9 @@
+from functools import partial 
+
 import einops
 import torch
 from kappamodules.layers import ContinuousSincosEmbed, LinearProjection
-from kappamodules.transformer import PerceiverBlock, Mlp
+from kappamodules.transformer import PerceiverBlock, DitPerceiverBlock, Mlp,PerceiverPoolingBlock,  DitPerceiverPoolingBlock
 from torch_geometric.utils import unbatch
 from torch import nn
 from models.base.single_model_base import SingleModelBase
@@ -31,7 +33,11 @@ class Edge2dPerceiver(SingleModelBase):
         self.query_mlp = Mlp(in_dim=dim, hidden_dim=dim, init_weights=init_weights)
 
         # latent to pixels
-        self.perceiver = PerceiverBlock(
+        if "condition_dim" in self.static_ctx:
+            block_ctor = partial(DitPerceiverBlock, cond_dim=self.static_ctx["condition_dim"])
+        else:
+            block_ctor = PerceiverBlock        
+        self.perceiver = block_ctor(
             dim=dim,
             num_heads=num_attn_heads,
             init_last_proj_zero=init_last_proj_zero,
@@ -41,7 +47,7 @@ class Edge2dPerceiver(SingleModelBase):
         self.norm = nn.LayerNorm(dim, eps=1e-6) if use_last_norm else nn.Identity()
         self.pred = LinearProjection(dim, output_dim, init_weights=init_weights)
 
-    def forward(self, x, query_pos, unbatch_idx, unbatch_select):
+    def forward(self, x, query_pos, unbatch_idx, unbatch_select, condition=None):
         # input projection
         x = self.proj(x)
 
@@ -49,8 +55,12 @@ class Edge2dPerceiver(SingleModelBase):
         query_pos_embed = self.pos_embed(query_pos)
         query = self.query_mlp(query_pos_embed)
 
+        block_kwargs = {}
+        if condition is not None:
+            block_kwargs["cond"] = condition
+
         # decode
-        x = self.perceiver(q=query, kv=x)
+        x = self.perceiver(q=query, kv=x, **block_kwargs)
         x = self.norm(x)
         x = self.pred(x)
 
