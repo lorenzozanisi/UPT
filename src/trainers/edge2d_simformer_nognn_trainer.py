@@ -35,7 +35,7 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
     @cached_property
     def output_shape(self):
-        dataset, collator = self.data_container.get_dataset("train", mode="x")
+        dataset, collator = self.data_container.get_dataset("train", mode="electron_density_2d")
         assert isinstance(collator.collator, Edge2dSimformerNognnCollator )
         output_shape = dataset.getshape_target()
         self.logger.info(f"output_shape: {output_shape}")
@@ -43,7 +43,7 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "target mesh_pos query_pos"
+        return "electron_density_2d mesh_pos query_pos"
 
     @cached_property
     def get_conditioning_vars_names(self):

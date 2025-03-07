@@ -31,8 +31,10 @@ from utils.system_info import log_system_info, get_cli_command
 from utils.version_check import check_versions
 from utils.wandb_utils import init_wandb, finish_wandb
 
+import torch
 
 def train_stage(stage_hp: dict, static_config: StaticConfig, cli_args: CliArgs, device: str):
+
     # set environment variables
     for key, value in stage_hp.get("env", {}).items():
         os.environ[key] = value if isinstance(value, str) else str(value)

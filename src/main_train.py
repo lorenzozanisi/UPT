@@ -59,7 +59,7 @@ def main_single(device):
         mindatarun=cli_args.mindatarun,
         mindurationrun=cli_args.mindurationrun,
     )
-
+ 
     # train stage
     train_stage(
         stage_hp=stage_hp,
@@ -93,4 +93,11 @@ def main():
 
 
 if __name__ == "__main__":
+    #print(torch.cuda.is_available())
+    #torch.cuda.get_device_name(0)
+    print('available',torch.cuda.is_available())  # Should return True
+    print('num devices', torch.cuda.device_count())  # Should be > 0    
+    print('current',torch.cuda.current_device())  # Should not throw an error 
+    print('cuda version', torch.version.cuda)  # Should be the version of the CUDA you have installed
+    print(torch.cuda.get_device_name(0))
     main()

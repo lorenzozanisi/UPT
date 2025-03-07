@@ -110,15 +110,19 @@ class Edge2d(DatasetBase):
         # discover uris
         self.uris = []
         for name in sorted(os.listdir(self.source_root)):
-            if name!='.' and not name.endswith('parquet'):
+            if name!='.' and not (name.endswith('pkl') or name.endswith('csv') or name.endswith('json')):
                 uri = self.source_root / name
                 self.uris.append(uri)
+                print('dicvoered uri', uri)
+        print(f'Discovered {len(self.uris)} uris: ', self.uris)
 
         self.conditions = self.load_conditions()[self.conditioning_vars]
-        # filter uris for indices that satisfy the conditions in the parquet file
-        self.uris = [self.uris[idx] for idx in self.conditions["sim_index"]]
         if smoke_test:
-            self.uris = self.uris[0]
+            self.uris = [self.uris[0]]
+        else:
+            # filter uris for indices that satisfy the conditions in the parquet file
+            self.uris = [self.uris[idx] for idx in self.conditions.index]
+
         # # split into train/test uris
         # if split == "train":
         #     train_idx = 0 # [i for i in range(len(self.uris)) if i not in self.TEST_INDICES][0]
@@ -152,7 +156,7 @@ class Edge2d(DatasetBase):
     # --- NOTE: this is for debugging/proof of concept purposes.    
     def getitem_electron_density_2d(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"targets2d"]["electron_density_2d"][:]
+            tmp = list(h5file[f"targets2d"]["electron_density_2d"])
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["electron_density_2d"]["mean"]
         tmp /= self.scaling_stats["electron_density_2d"]["std"]
@@ -160,7 +164,7 @@ class Edge2d(DatasetBase):
 
     def getitem_psin(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"inputs2d"]["psin"][:]
+            tmp = list(h5file[f"inputs2d"]["psin"])
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["psin"]["mean"]
         tmp /= self.scaling_stats["psin"]["std"]
@@ -168,7 +172,7 @@ class Edge2d(DatasetBase):
 
     def getitem_b_toroidal(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"inputs2d"]["b_toroidal"][:]
+            tmp = list(h5file[f"inputs2d"]["b_toroidal"])
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["b_toroidal"]["mean"]
         tmp /= self.scaling_stats["b_toroidal"]["std"]
@@ -176,7 +180,7 @@ class Edge2d(DatasetBase):
     
     def getitem_sh(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"inputs2d"]["sh"][:]
+            tmp = list(h5file[f"inputs2d"]["sh"])
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["sh"]["mean"]
         tmp /= self.scaling_stats["sh"]["std"]

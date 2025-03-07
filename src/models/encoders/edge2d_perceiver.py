@@ -60,6 +60,7 @@ class Edge2dPerceiver(SingleModelBase):
         #         init_last_proj_zero=init_last_proj_zero,
         #     ),
         # )
+
         self.block = block_ctor(
             dim=dim,
             num_heads=num_attn_heads,
