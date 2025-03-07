@@ -10,30 +10,12 @@ import numpy as np
 import torch
 from kappautils.param_checking import to_3tuple, to_2tuple
 from torch_geometric.nn.pool import radius, radius_graph
-
+import pandas as pd
 from distributed.config import barrier, is_data_rank0
 from .base.dataset_base import DatasetBase
 
 
 class Edge2d(DatasetBase):
-    # TODO: change
-    TEST_INDICES = {
-        550, 592, 229, 547, 62, 464, 798, 836, 5, 732, 876, 843, 367, 496,
-        142, 87, 88, 101, 303, 352, 517, 8, 462, 123, 348, 714, 384, 190,
-        505, 349, 174, 805, 156, 417, 764, 788, 645, 108, 829, 227, 555, 412,
-        854, 21, 55, 210, 188, 274, 646, 320, 4, 344, 525, 118, 385, 669,
-        113, 387, 222, 786, 515, 407, 14, 821, 239, 773, 474, 725, 620, 401,
-        546, 512, 837, 353, 537, 770, 41, 81, 664, 699, 373, 632, 411, 212,
-        678, 528, 120, 644, 500, 767, 790, 16, 316, 259, 134, 531, 479, 356,
-        641, 98, 294, 96, 318, 808, 663, 447, 445, 758, 656, 177, 734, 623,
-        216, 189, 133, 427, 745, 72, 257, 73, 341, 584, 346, 840, 182, 333,
-        218, 602, 99, 140, 809, 878, 658, 779, 65, 708, 84, 653, 542, 111,
-        129, 676, 163, 203, 250, 209, 11, 508, 671, 628, 112, 317, 114, 15,
-        723, 746, 765, 720, 828, 662, 665, 399, 162, 495, 135, 121, 181, 615,
-        518, 749, 155, 363, 195, 551, 650, 877, 116, 38, 338, 849, 334, 109,
-        580, 523, 631, 713, 607, 651, 168,
-    }
-
     def __init__(
             self,
             split,
@@ -49,9 +31,31 @@ class Edge2d(DatasetBase):
             local_root=None,
             seed=None,
             conditioning_vars=None,
+            conditioning_vars_fname=None,
+            smoke_test=False,
             **kwargs,
     ):
+        """
+        Edge2D dataset for the edge2d-based models.
+        Args:
+            split (str): Split of the dataset, either "train" or "test".
+            radius_graph_r (float): Radius for the graph construction.
+            radius_graph_max_num_neighbors (int): Maximum number of neighbors for the graph construction.
+            num_input_points_ratio (Union[None, Tuple[float, float]]): Ratio of input points to sample from the mesh.
+            num_query_points_ratio (float): Ratio of query points to sample from the mesh.
+            grid_resolution (Union[None, Tuple[int, int]]): Resolution of the grid for the interpolated field.
+            num_supernodes (Union[None, int]): Number of supernodes to sample from the mesh.
+            standardize_query_pos (bool): Standardize query positions to [-1, 1].
+            concat_pos_to_sdf (bool): Concatenate position to the sdf features.
+            global_root (Path): Global root of the dataset.
+            local_root (Path): Local root of the dataset.
+            seed (int): Seed for the random number generator.
+            conditioning_vars (List[str]): List of conditioning variables. Passed in yaml file
+            conditioning_vars_fname (str): Name of the pickle file containing the conditioning variables. Passed in the yaml file.
+            **kwargs: Additional arguments.
+        """
         super().__init__(**kwargs)
+        self.conditioning_vars_fname = conditioning_vars_fname
         self.conditioning_vars = conditioning_vars
         self.split = split
         self.radius_graph_r = radius_graph_r
@@ -77,14 +81,6 @@ class Edge2d(DatasetBase):
         self.standardize_query_pos = standardize_query_pos
         self.concat_pos_to_sdf = concat_pos_to_sdf
 
-        self.mean = {}
-        self.std = {}
-        self.mean['target'] = torch.tensor(136.75)
-        self.std['target'] = torch.tensor(817.87)
-       # self.mean['connection_length'] = torch.tensor(16.74)
-       # self.std['connection_length'] = torch.tensor(30.87)
-
-
         global_root, local_root = self._get_roots(global_root, local_root, "edge2d")
         if local_root is None:
             # load data from global_root
@@ -109,35 +105,42 @@ class Edge2d(DatasetBase):
         assert self.source_root.exists(), f"'{self.source_root.as_posix()}' doesn't exist"
         assert self.source_root.name == "preprocessed", f"'{self.source_root.as_posix()}' is not preprocessed folder"
 
+        self.scaling_stats = self.source_root / "stats.pkl"
+
         # discover uris
         self.uris = []
         for name in sorted(os.listdir(self.source_root)):
-            if name!='.':
+            if name!='.' and not name.endswith('parquet'):
                 uri = self.source_root / name
-                assert name.endswith('h5'), f"Found file name {name}, which is not an h5 file."
                 self.uris.append(uri)
 
-        # split into train/test uris
-        if split == "train":
-            train_idx = 0 # [i for i in range(len(self.uris)) if i not in self.TEST_INDICES][0]
-            self.uris = [self.uris[train_idx]]# for train_idx in train_idxs]
-        elif split == "test":
-            test_idx = 0
-            self.uris = [self.uris[test_idx]]# for test_idx in test_idxs] # self.TEST_INDICES]
+        self.conditions = self.load_conditions()[self.conditioning_vars]
+        # filter uris for indices that satisfy the conditions in the parquet file
+        self.uris = [self.uris[idx] for idx in self.conditions["sim_index"]]
+        if smoke_test:
+            self.uris = self.uris[0]
+        # # split into train/test uris
+        # if split == "train":
+        #     train_idx = 0 # [i for i in range(len(self.uris)) if i not in self.TEST_INDICES][0]
+        #     self.uris = [self.uris[train_idx]]# for train_idx in train_idxs]
+        # elif split == "test":
+        #     test_idx = 0
+        #     self.uris = [self.uris[test_idx]]# for test_idx in test_idxs] # self.TEST_INDICES]
 
-        else:
-            raise NotImplementedError
+        # else:
+        #     raise NotImplementedError
 
     def __len__(self):
         return len(self.uris)
 
-    #  TODO: finish below here
-    # def getshape_target(self):
-    #     sim_name, timestep_to_fname = self.samples[0]
-    #     num_channels = torch.load(self.source_root / sim_name / timestep_to_fname[0]).T.size(1)
-    #     return None, num_channels
+    def getshape_target(self):
+        num_channels = self.getitem_target(0).size(1)
+        return None, num_channels
     
     # noinspection PyUnusedLocal
+    def load_conditions(self):
+        return pd.read_pickle(self.source_root / self.conditioning_vars_fname)
+                               
     def getitem_target(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
             tmp = h5file[f"targets2d"]["target"][:]
@@ -146,79 +149,90 @@ class Edge2d(DatasetBase):
         tmp /= self.std["target"]
         return tmp 
 
+    # --- NOTE: this is for debugging/proof of concept purposes.    
+    def getitem_electron_density_2d(self, idx, ctx=None):
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file[f"targets2d"]["electron_density_2d"][:]
+        tmp = torch.from_numpy(tmp)
+        tmp -= self.scaling_stats["electron_density_2d"]["mean"]
+        tmp /= self.scaling_stats["electron_density_2d"]["std"]
+        return tmp     
+
+    def getitem_psin(self, idx, ctx=None):
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file[f"inputs2d"]["psin"][:]
+        tmp = torch.from_numpy(tmp)
+        tmp -= self.scaling_stats["psin"]["mean"]
+        tmp /= self.scaling_stats["psin"]["std"]
+        return tmp     
+
+    def getitem_b_toroidal(self, idx, ctx=None):
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file[f"inputs2d"]["b_toroidal"][:]
+        tmp = torch.from_numpy(tmp)
+        tmp -= self.scaling_stats["b_toroidal"]["mean"]
+        tmp /= self.scaling_stats["b_toroidal"]["std"]
+        return tmp     
+    
+    def getitem_sh(self, idx, ctx=None):
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp = h5file[f"inputs2d"]["sh"][:]
+        tmp = torch.from_numpy(tmp)
+        tmp -= self.scaling_stats["sh"]["mean"]
+        tmp /= self.scaling_stats["sh"]["std"]
+        return tmp     
+        
     def getnames_conditioning_vars(self):
         return self.conditioning_vars
     
-    def getitem_connection_length(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["connection_length"][:]
+    def getitem_connection_length(self, idx, ctx=None): 
+        tmp = self.conditions["connection_length"][idx]   
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["connection_length"]
-        tmp /= self.std["connection_length"]
         return tmp
 
-    def getitem_psep(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["psep"][:]
+    def getitem_deuterium_puff_values(self, idx, ctx=None):
+        tmp = self.conditions["psep"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["psep"]
-        tmp /= self.std["psep"]
+        return tmp        
+
+    def getitem_psep(self, idx, ctx=None): 
+        tmp = self.conditions["psep"][idx]
+        tmp = torch.tensor(tmp)
         return tmp
 
-    def getitem_pumped_neutral_flux(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["pumped_neutral_flux"][:]
+    def getitem_pumped_neutral_flux(self, idx, ctx=None): 
+        tmp = self.conditions["pumped_neutral_flux"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["pumped_neutral_flux"]
-        tmp /= self.std["pumped_neutral_flux"]
         return tmp
 
-    def getitem_inner_avg_albedo(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["inner_avg_albedo"][:]
+    def getitem_inner_avg_albedo(self, idx, ctx=None): 
+        tmp = self.conditions["inner_avg_albedo"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["inner_avg_albedo"]
-        tmp /= self.std["inner_avg_albedo"]
         return tmp            
 
-    def getitem_outer_avg_albedo(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["outer_avg_albedo"][:]
+    def getitem_outer_avg_albedo(self, idx, ctx=None): 
+        tmp = self.conditions["outer_avg_albedo"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["outer_avg_albedo"]
-        tmp /= self.std["outer_avg_albedo"]
         return tmp            
     
-    def getitem_particle_flux_omp(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["particle_flux_omp"][:]
+    def getitem_particle_flux_omp(self, idx, ctx=None): 
+        tmp = self.conditions["particle_flux_omp"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["particle_flux_omp"]
-        tmp /= self.std["particle_flux_omp"]
         return tmp            
 
-    def getitem_pumped_neutral_flux(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["pumped_neutral_flux"][:]
+    def getitem_pumped_neutral_flux(self, idx, ctx=None): 
+        tmp = self.conditions["pumped_neutral_flux"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["pumped_neutral_flux"]
-        tmp /= self.std["pumped_neutral_flux"]
         return tmp            
 
-    def getitem_flux_expansion(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["flux_expansion"][:]
+    def getitem_flux_expansion(self, idx, ctx=None): 
+        tmp = self.conditions["flux_expansion"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["flux_expansion"]
-        tmp /= self.std["flux_expansion"]
         return tmp                        
 
-    def getitem_strike_point_poloidal_angle(self, idx, ctx=None): # TODO perhaps pass variable name to a single function?
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file["conditioning"]["strike_point_poloidal_angle"][:]
+    def getitem_strike_point_poloidal_angle(self, idx, ctx=None): 
+        tmp = self.conditions["strike_point_poloidal_angle"][idx]
         tmp = torch.tensor(tmp)
-        tmp -= self.mean["strike_point_poloidal_angle"]
-        tmp /= self.std["strike_point_poloidal_angle"]
         return tmp                        
     
     def getitem_grid_utils(self, idx):
@@ -231,6 +245,7 @@ class Edge2d(DatasetBase):
         return korpg, nvertp, zvertp, rvertp, nump    
 
     # noinspection PyUnusedLocal
+    # --- Only used when using grid-based stuff such as GINO
     def getitem_grid_pos(self, idx=None, ctx=None):
         if ctx is not None and "grid_pos" in ctx:
             return ctx["grid_pos"]
@@ -247,6 +262,7 @@ class Edge2d(DatasetBase):
             ctx["grid_pos"] = grid_pos
         return grid_pos
 
+    # --- Only used when using grid-based stuff such as GINO
     def getitem_mesh_to_grid_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
@@ -267,6 +283,7 @@ class Edge2d(DatasetBase):
             tmp = h5file[f"targets2d"]["target"][:]
         return None, tmp.shape[1]
     
+    # --- Only used when using grid-based stuff such as GINO
     def getitem_grid_to_query_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
@@ -315,8 +332,8 @@ class Edge2d(DatasetBase):
         if ctx is not None and "all_pos" in ctx:
             return ctx["all_pos"]
         with h5py.File(self.uris[idx], 'r') as h5file:
-            r = h5file[f"mesh2d"]["rmesh2d"][:]
-            z = h5file[f"mesh2d"]["zmesh2d"][:]
+            r = h5file["mesh"]["rmesh2d"][:]
+            z = h5file["mesh"]["zmesh2d"][:]
         all_pos = torch.from_numpy(np.vstack((r,z)).T)
         #all_pos = torch.load(self.uris[idx] / "mesh_points.th")
         # rescale for sincos positional embedding
@@ -391,6 +408,7 @@ class Edge2d(DatasetBase):
         return edges.T
 
     # noinspection PyUnusedLocal
+    # --- TODO
     def getitem_sdf(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert all(self.grid_resolution[0] == grid_resolution for grid_resolution in self.grid_resolution[1:])
