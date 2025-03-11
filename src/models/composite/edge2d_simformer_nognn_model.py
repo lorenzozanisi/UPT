@@ -22,7 +22,7 @@ class Edge2dSimformerNognnModel(CompositeModelBase):
         )
 
         # conditioner
-        if conditioner is not None:
+        if "condition_dim" in self.static_ctx.keys():
             self.conditioner = create(
                 conditioner,
                 model_from_kwargs,
@@ -52,7 +52,7 @@ class Edge2dSimformerNognnModel(CompositeModelBase):
             output_shape=self.output_shape,
         )
 
-    @property
+   # @property
     def submodels(self):
         return dict(
             conditioner=self.conditioner,

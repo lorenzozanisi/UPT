@@ -93,6 +93,6 @@ class CompositeModelBase(ModelBase):
         if isinstance(device, str):
             device = torch.device(device)
         assert isinstance(device, torch.device)
-        for sub_model in self.submodels.values():
+        for sub_model in self.submodels().values():
             sub_model.to(*args, **kwargs, device=device)
         return super().to(*args, **kwargs, device=device)

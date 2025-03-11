@@ -403,6 +403,14 @@ class SgdTrainer(nn.Module):
         return self.effective_batch_size
 
     def _prepare_model(self, model):
+    #     print(dir(model))
+    #     print("submodels" in dir(model))
+    #     print(getattr(model, "submodels"))
+    #    # print(model.submodels)
+    #     # att = [method_name for method_name in dir(model)
+    #     #           if callable(getattr(model, method_name))]        
+    #     # print(att)
+    #     exit(0)
         model = model.to(self.device)
         model.initialize(lr_scale_factor=self.lr_scale_factor)
         self.apply_resume_initializer(model)
