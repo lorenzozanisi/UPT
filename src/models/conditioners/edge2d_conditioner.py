@@ -14,14 +14,18 @@ class Edge2dConditioner(SingleModelBase):
         self.init_weights = init_weights
         self.static_ctx["condition_dim"] = self.cond_dim 
 
-        for cond_var in self.conditioning_vars:
-            setattr(self,cond_var,ContinuousSincosEmbed(dim=dim, ndim=1))
-            setattr(self,cond_var+"_mlp",nn.Sequential(
-                nn.Linear(dim, dim * 4),
-                nn.GELU(),
-                nn.Linear(dim * 4, self.cond_dim),
-                nn.GELU(),
-            ))    
+        cond_dim = len(self.conditioning_vars)
+        self.conition_embed = ContinuousConditionEmbed(dim=dim, n_cond=cond_dim)
+
+
+
+            # setattr(self,cond_var,ContinuousSincosEmbed(dim=dim, ndim=1))
+            # setattr(self,cond_var+"_mlp",nn.Sequential(
+            #     nn.Linear(dim, dim * 4),
+            #     nn.GELU(),
+            #     nn.Linear(dim * 4, self.cond_dim),
+            #     nn.GELU(),
+            # ))    
     
         # init
         self.reset_parameters()
@@ -44,10 +48,10 @@ class Edge2dConditioner(SingleModelBase):
         # if timestep.numel() == 1:
         #     timestep = timestep.repeat(velocity.numel())
         # embed
-        embedded = zeros(self.cond_dim).to(self.device)
-        assert len(self.conditioning_vars) == len(conditioning)
-        for cond_var in self.conditioning_vars:
-            condition = getattr(self,cond_var)(conditioning[cond_var])
-            embedded += getattr(self,cond_var+"_mlp")(condition)
-
+        # embedded = zeros(self.cond_dim).to(self.device)
+        # assert len(self.conditioning_vars) == len(conditioning)
+        # for cond_var in self.conditioning_vars:
+        #     condition = getattr(self,cond_var)(conditioning[cond_var])
+        #     embedded += getattr(self,cond_var+"_mlp")(condition)
+        embedded = self.conition_embed(conditioning)
         return embedded
