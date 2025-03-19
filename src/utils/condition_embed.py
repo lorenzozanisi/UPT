@@ -53,10 +53,13 @@ class ContinuousConditionEmbed(nn.Module):
         if cond.ndim == 1:
             cond = cond.unsqueeze(-1)
         print('shape',cond.shape)
+        cond = cond.view((cond.shape[-1], -1))
+        print('shape 2',cond.shape)
      #   assert self.n_cond == cond.shape[-1], f"{self.n_cond} != {cond.shape[-1]}"
         out = cond.unsqueeze(-1) @ self.omega.unsqueeze(0)
         emb = torch.concat([torch.sin(out), torch.cos(out)], dim=-1)
         emb = rearrange(emb, "... ncond cdim -> ... (ncond cdim)")
+        print(emb.shape)
         # if self.padding > 0:
         #     padding = torch.zeros(
         #         *emb.shape[:-1], self.padding, device=emb.device, dtype=emb.dtype
