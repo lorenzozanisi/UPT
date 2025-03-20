@@ -13,7 +13,7 @@ from distributed.gather import all_gather_nograd_clipped
 from utils.naming_util import snake_type_name
 from utils.noop_tqdm import NoopTqdm
 from .callback_base import CallbackBase
-
+import logging
 
 class PeriodicCallback(CallbackBase):
     def __init__(
@@ -102,6 +102,7 @@ class PeriodicCallback(CallbackBase):
             return checkpoint.epoch % self.every_n_epochs == 0
         return False
 
+
     def should_log_after_update(self, checkpoint):
         if self.every_n_updates is not None:
             return checkpoint.update % self.every_n_updates == 0
@@ -135,6 +136,7 @@ class PeriodicCallback(CallbackBase):
         pass
 
     def _periodic_callback(self, interval_type, **kwargs):
+        logging.info('inside _periodic_callback')
         pass
 
     @torch.no_grad()

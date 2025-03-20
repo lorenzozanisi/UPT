@@ -35,18 +35,22 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
     @cached_property
     def output_shape(self):
-        dataset, collator = self.data_container.get_dataset("train", mode="electron_density_2d")
+        dataset, collator = self.data_container.get_dataset("train", mode="target")
         assert isinstance(collator.collator, Edge2dSimformerNognnCollator )
+        print('getting shape')
         output_shape = dataset.getshape_target()
         self.logger.info(f"output_shape: {output_shape}")
         return output_shape
 
     @cached_property
     def dataset_mode(self):
-        return "electron_density_2d mesh_pos query_pos"
+        # TODO define in yaml
+        other = "target mesh_pos query_pos"
+        all_modes = ' '.join([*self.conditioning_vars_names, other])
+        return all_modes
 
     @cached_property
-    def get_conditioning_vars_names(self):
+    def conditioning_vars_names(self):
         return self.data_container.get_dataset().getnames_conditioning_vars()
 
     def get_trainer_model(self, model):
@@ -65,11 +69,17 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
         def prepare(self, batch):
             batch, ctx = batch
-            conditioning_vars_names = self.trainer.get_conditioning_vars_names()
-
-            conditioning_vars = dict(
-                (var_name,self.to_device(item=var_name, batch=batch, dataset_mode=self.trainer.dataset_mode)) for var_name in conditioning_vars_names
+            print('preparing', ctx)
+            conditioning = dict(
+                    (var_name,self.to_device
+                        (item=var_name,
+                         batch=batch,
+                        )
+                    ) 
+                    for var_name in self.trainer.conditioning_vars_names
                 )
+            conditioning = torch.stack(list(conditioning.values())).to(self.model.device)
+            
             data = dict(
                 # Util variables
                 mesh_pos=self.to_device(item="mesh_pos", batch=batch),
@@ -80,14 +90,15 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
                 # Target variables
                 target=self.to_device(item="target", batch=batch),
             )
-            return data, conditioning_vars
+            return data, conditioning
 
         def forward(self, batch, reduction="mean"):
-            data, conditioning_vars = self.prepare(batch)
+            data, conditioning = self.prepare(batch)
+            # TODO: target definition should be in yaml file
             target = data.pop("target")
 
             # forward pass
-            model_outputs = self.model(conditioning_vars,**data)
+            model_outputs = self.model(conditioning,**data)
             loss = self.trainer.loss_function(
                 prediction=model_outputs["x_hat"],
                 target=target,

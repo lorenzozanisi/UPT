@@ -97,7 +97,7 @@ class Edge2dPerceiver(SingleModelBase):
         block_kwargs = {}
         if condition is not None:
             block_kwargs["cond"] = condition
-        # perceiver - NOTE: attn_mask is not used in the cfd cases?
+        # perceiver - NOTE: attn_mask is not used in the cfd cases? What's attn mask?
         x = self.mlp(x)
         x = self.block(kv=x, attn_mask=mask, **block_kwargs) 
 

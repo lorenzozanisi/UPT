@@ -29,6 +29,8 @@ class Edge2dSimformerNognnModel(CompositeModelBase):
                 **common_kwargs,
                 input_shape=self.input_shape,
             )        
+        else:
+            self.conditioner = None
         # encoder
         self.encoder = create(
             encoder,
@@ -52,7 +54,7 @@ class Edge2dSimformerNognnModel(CompositeModelBase):
             output_shape=self.output_shape,
         )
 
-   # @property
+    @property
     def submodels(self):
         return dict(
             conditioner=self.conditioner,
@@ -62,23 +64,27 @@ class Edge2dSimformerNognnModel(CompositeModelBase):
         )
 
     # noinspection PyMethodOverriding
-    def forward(self, conditioning_vars, mesh_pos, query_pos, batch_idx, unbatch_idx, unbatch_select):
+    def forward(self, conditioning, mesh_pos, query_pos, batch_idx, unbatch_idx, unbatch_select):
         outputs = {}
 
         # encode data
+        print('Conditioner...')
         if self.conditioner is not None:
-            condition = self.conditioner(**conditioning_vars)
+            condition = self.conditioner(conditioning) 
         else:
             condition = None
 
+        print('Encoder...')
         encoded = self.encoder(mesh_pos=mesh_pos, batch_idx=batch_idx, condition=condition)
 
         # propagate
         #Condition TODO
+        print('Latent...')
         propagated = self.latent(encoded, condition=condition) 
 
         # decode
         #Condition TODO
+        print('Decoder...')
         x_hat = self.decoder(propagated, condition=condition, query_pos=query_pos, unbatch_idx=unbatch_idx, unbatch_select=unbatch_select)
         outputs["x_hat"] = x_hat
 

@@ -59,6 +59,11 @@ class DataContainer:
             dataset = SubsetWrapper(dataset, end_index=max_size)
         if mode is not None:
             dataset = ModeWrapper(dataset=dataset, mode=mode, return_ctx=True)
+            print('collator kwargs (in DataContainer):',
+                  dataset.collators,
+                  dataset.mode,
+                  dataset.return_ctx,)
+            
             if len(dataset.collators) == 1:
                 collator = KDSingleCollatorWrapper(
                     collator=dataset.collators[0],
@@ -73,7 +78,7 @@ class DataContainer:
                 )
             else:
                 collator = None
-           # print('DATASET COLLATOR', dataset, collator)
+            print('collator is ', collator)
             return dataset, collator
         return dataset
 
@@ -150,6 +155,7 @@ class DataContainer:
             configs,
             start_epoch=None,
     ):
+        print('main sampler (in DataContainer):', main_sampler)
         sampler = kd.InterleavedSampler(
             main_sampler=main_sampler,
             batch_size=batch_size,

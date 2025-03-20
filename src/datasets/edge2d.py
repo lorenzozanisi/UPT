@@ -12,6 +12,7 @@ from kappautils.param_checking import to_3tuple, to_2tuple
 from torch_geometric.nn.pool import radius, radius_graph
 import pandas as pd
 from distributed.config import barrier, is_data_rank0
+import pickle
 from .base.dataset_base import DatasetBase
 
 
@@ -105,7 +106,8 @@ class Edge2d(DatasetBase):
         assert self.source_root.exists(), f"'{self.source_root.as_posix()}' doesn't exist"
         assert self.source_root.name == "preprocessed", f"'{self.source_root.as_posix()}' is not preprocessed folder"
 
-        self.scaling_stats = self.source_root / "stats.pkl"
+        with open(self.source_root / "stats.pkl", "rb") as f:
+            self.scaling_stats = pickle.load(f)
 
         # discover uris
         self.uris = []
@@ -113,15 +115,24 @@ class Edge2d(DatasetBase):
             if name!='.' and not (name.endswith('pkl') or name.endswith('csv') or name.endswith('json')):
                 uri = self.source_root / name
                 self.uris.append(uri)
-                print('dicvoered uri', uri)
+                print('discvoered uri', uri)
         print(f'Discovered {len(self.uris)} uris: ', self.uris)
 
-        self.conditions = self.load_conditions()[self.conditioning_vars]
+        self.conditions = self.load_conditions()
         if smoke_test:
             self.uris = [self.uris[0]]
         else:
-            # filter uris for indices that satisfy the conditions in the parquet file
-            self.uris = [self.uris[idx] for idx in self.conditions.index]
+            # filter uris for indices that satisfy the conditions in the conditions dataframe
+            # uris are now indexed not by the index of the conditions dataframe but by their position in the list
+            tmp_uris = []
+            for idx in self.conditions.index:
+                try:
+                    tmp_uris.append(self.uris[idx])
+                except IndexError:
+                    self.conditions = self.conditions.drop(index=idx)
+            self.uris = tmp_uris
+            #self.uris = [self.uris[idx] for idx in self.conditions.index if os.path.exists(self.uris[idx])]
+            
 
         # # split into train/test uris
         # if split == "train":
@@ -136,35 +147,42 @@ class Edge2d(DatasetBase):
 
     def __len__(self):
         return len(self.uris)
-
-    def getshape_target(self):
-        num_channels = self.getitem_target(0).size(1)
-        return None, num_channels
     
     # noinspection PyUnusedLocal
     def load_conditions(self):
-        return pd.read_pickle(self.source_root / self.conditioning_vars_fname)
+        conditions = pd.read_pickle(self.source_root / self.conditioning_vars_fname)[self.conditioning_vars]
+        mean = conditions.values.mean(axis=0)
+        scaled = conditions.values-mean
+        std = scaled.std(axis=0)
+        conditions = pd.DataFrame(scaled / std, columns=self.conditioning_vars, dtype=np.float16)
+        return conditions
                                
+    # def getitem_target(self, idx, ctx=None):
+    #     with h5py.File(self.uris[idx], 'r') as h5file:
+    #         tmp = h5file[f"targets2d"]["target"][:]
+    #     tmp = torch.from_numpy(tmp)
+    #     tmp -= self.mean["target"]
+    #     tmp /= self.std["target"]
+    #     return tmp 
+
+    # --- TODO: to be updated to actual target 
     def getitem_target(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = h5file[f"targets2d"]["target"][:]
+            tmp = np.array(list(h5file[f"targets2d"]["electron_temp_2d"]))
         tmp = torch.from_numpy(tmp)
-        tmp -= self.mean["target"]
-        tmp /= self.std["target"]
-        return tmp 
-
-    # --- NOTE: this is for debugging/proof of concept purposes.    
-    def getitem_electron_density_2d(self, idx, ctx=None):
-        with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = list(h5file[f"targets2d"]["electron_density_2d"])
-        tmp = torch.from_numpy(tmp)
-        tmp -= self.scaling_stats["electron_density_2d"]["mean"]
-        tmp /= self.scaling_stats["electron_density_2d"]["std"]
+        tmp -= self.scaling_stats["electron_temp_2d"]["mean"]
+        tmp /= self.scaling_stats["electron_temp_2d"]["std"]
         return tmp     
 
+    # --- TODO: to be updated to actual target
+    def getshape_target(self):
+        # with h5py.File(self.uris[0], 'r') as h5file:
+        #     tmp = h5file[f"targets2d"]["electron_temp_2d"][:]
+        return None, 1
+    
     def getitem_psin(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = list(h5file[f"inputs2d"]["psin"])
+            tmp = np.array(list(h5file[f"inputs2d"]["psin"]))
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["psin"]["mean"]
         tmp /= self.scaling_stats["psin"]["std"]
@@ -172,7 +190,7 @@ class Edge2d(DatasetBase):
 
     def getitem_b_toroidal(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = list(h5file[f"inputs2d"]["b_toroidal"])
+            tmp = np.array(list(h5file[f"inputs2d"]["b_toroidal"]))
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["b_toroidal"]["mean"]
         tmp /= self.scaling_stats["b_toroidal"]["std"]
@@ -180,7 +198,7 @@ class Edge2d(DatasetBase):
     
     def getitem_sh(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = list(h5file[f"inputs2d"]["sh"])
+            tmp = np.array(list(h5file[f"inputs2d"]["sh"]))
         tmp = torch.from_numpy(tmp)
         tmp -= self.scaling_stats["sh"]["mean"]
         tmp /= self.scaling_stats["sh"]["std"]
@@ -190,52 +208,52 @@ class Edge2d(DatasetBase):
         return self.conditioning_vars
     
     def getitem_connection_length(self, idx, ctx=None): 
-        tmp = self.conditions["connection_length"][idx]   
+        tmp = self.conditions.iloc[idx,"connection_length"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_deuterium_puff_values(self, idx, ctx=None):
-        tmp = self.conditions["psep"][idx]
+        tmp = self.conditions.iloc[idx]["deuterium_puff_values"]
         tmp = torch.tensor(tmp)
         return tmp        
 
     def getitem_psep(self, idx, ctx=None): 
-        tmp = self.conditions["psep"][idx]
+        tmp = self.conditions.iloc[idx]["psep"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_pumped_neutral_flux(self, idx, ctx=None): 
-        tmp = self.conditions["pumped_neutral_flux"][idx]
+        tmp = self.conditions.iloc[idx]["pumped_neutral_flux"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_inner_avg_albedo(self, idx, ctx=None): 
-        tmp = self.conditions["inner_avg_albedo"][idx]
+        tmp = self.conditions.iloc[idx]["inner_avg_albedo"]
         tmp = torch.tensor(tmp)
         return tmp            
 
     def getitem_outer_avg_albedo(self, idx, ctx=None): 
-        tmp = self.conditions["outer_avg_albedo"][idx]
+        tmp = self.conditions.iloc[idx]["outer_avg_albedo"]
         tmp = torch.tensor(tmp)
         return tmp            
     
     def getitem_particle_flux_omp(self, idx, ctx=None): 
-        tmp = self.conditions["particle_flux_omp"][idx]
+        tmp = self.conditions.iloc[idx]["particle_flux_omp"]
         tmp = torch.tensor(tmp)
         return tmp            
 
     def getitem_pumped_neutral_flux(self, idx, ctx=None): 
-        tmp = self.conditions["pumped_neutral_flux"][idx]
+        tmp = self.conditions.iloc[idx]["pumped_neutral_flux"]
         tmp = torch.tensor(tmp)
         return tmp            
 
     def getitem_flux_expansion(self, idx, ctx=None): 
-        tmp = self.conditions["flux_expansion"][idx]
+        tmp = self.conditions.iloc[idx]["flux_expansion"]
         tmp = torch.tensor(tmp)
         return tmp                        
 
     def getitem_strike_point_poloidal_angle(self, idx, ctx=None): 
-        tmp = self.conditions["strike_point_poloidal_angle"][idx]
+        tmp = self.conditions.iloc[idx]["strike_point_poloidal_angle"]
         tmp = torch.tensor(tmp)
         return tmp                        
     
@@ -281,11 +299,6 @@ class Edge2d(DatasetBase):
         ).T
         # edges is (num_points, 2)
         return edges
-
-    def getshape_target(self):
-        with h5py.File(self.uris[0], 'r') as h5file:
-            tmp = h5file[f"targets2d"]["target"][:]
-        return None, tmp.shape[1]
     
     # --- Only used when using grid-based stuff such as GINO
     def getitem_grid_to_query_edges(self, idx, ctx=None):
