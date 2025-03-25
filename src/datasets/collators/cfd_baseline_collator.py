@@ -70,44 +70,44 @@ class CfdBaselineCollator(KDSingleCollator):
         collated_batch["target"] = torch.concat(target)
 
         # to sparse tensor batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
-        mesh_to_grid_edges = []
+        mesh_to_grid_Sols = []
         mesh_offset = 0
         grid_offset = 0
         for i in range(len(batch)):
-            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_to_grid_edges")
+            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_to_grid_Sols")
             # if None -> create graph on GPU
             if idx is None:
                 break
             idx[:, 0] += grid_offset
             idx[:, 1] += mesh_offset
-            mesh_to_grid_edges.append(idx)
+            mesh_to_grid_Sols.append(idx)
             mesh_offset += mesh_lens[i]
             grid_offset += grid_lens[i]
-        if len(mesh_to_grid_edges) > 0:
+        if len(mesh_to_grid_Sols) > 0:
             # noinspection PyTypedDict
-            collated_batch["mesh_to_grid_edges"] = torch.concat(mesh_to_grid_edges)
+            collated_batch["mesh_to_grid_Sols"] = torch.concat(mesh_to_grid_Sols)
         else:
-            collated_batch["mesh_to_grid_edges"] = None
+            collated_batch["mesh_to_grid_Sols"] = None
 
-        # sparse grid_to_query_edges: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
-        grid_to_query_edges = []
+        # sparse grid_to_query_Sols: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
+        grid_to_query_Sols = []
         query_offset = 0
         grid_offset = 0
         for i in range(len(batch)):
-            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="grid_to_query_edges")
+            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="grid_to_query_Sols")
             # if None -> create graph on GPU
             if idx is None:
                 break
             idx[:, 0] += query_offset
             idx[:, 1] += grid_offset
-            grid_to_query_edges.append(idx)
+            grid_to_query_Sols.append(idx)
             query_offset += query_lens[i]
             grid_offset += grid_lens[i]
-        if len(grid_to_query_edges) > 0:
+        if len(grid_to_query_Sols) > 0:
             # noinspection PyTypedDict
-            collated_batch["grid_to_query_edges"] = torch.concat(grid_to_query_edges)
+            collated_batch["grid_to_query_Sols"] = torch.concat(grid_to_query_Sols)
         else:
-            collated_batch["grid_to_query_edges"] = None
+            collated_batch["grid_to_query_Sols"] = None
 
         # normal collation for other properties (timestep, velocity, geometry2d)
         result = []

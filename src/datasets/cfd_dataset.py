@@ -24,7 +24,7 @@ class CfdDataset(DatasetBase):
             num_input_points_ratio=None,
             num_input_points_mode="uniform",
             num_supernodes=None,
-            supernode_edge_mode="mesh_to_supernode",
+            supernode_Sol_mode="mesh_to_supernode",
             num_query_points=None,
             num_query_points_mode="input",
             couple_query_with_input=False,
@@ -62,7 +62,7 @@ class CfdDataset(DatasetBase):
         self.num_input_points_ratio = to_2tuple(num_input_points_ratio)
         self.num_input_points_mode = num_input_points_mode
         self.num_supernodes = num_supernodes
-        self.supernode_edge_mode = supernode_edge_mode
+        self.supernode_Sol_mode = supernode_Sol_mode
         assert not (self.num_input_points is not None and self.num_input_points_ratio is not None)
         # grid
         assert grid_resolution is None or len(grid_resolution) == 2
@@ -378,7 +378,7 @@ class CfdDataset(DatasetBase):
             return False
         if fname in ["object_mask.th", "U_init.th", "x.th", "y.th", "movement_per_position.th", "num_objects.th"]:
             return False
-        if fname.startswith("edge_index"):
+        if fname.startswith("Sol_index"):
             return False
         if fname.startswith("sampling_weights"):
             return False
@@ -511,7 +511,7 @@ class CfdDataset(DatasetBase):
 
     def _downsample_query(self, data, idx=None, ctx=None):
         # rollout needs to have same permutation for input and query because the prediction is used as next input
-        # if rollout is via latent space its not strictly needed but this edge case is not considered
+        # if rollout is via latent space its not strictly needed but this Sol case is not considered
         if self.num_input_timesteps == float("inf"):
             assert self.num_query_points is None
             return self._downsample_input(data, idx=idx, ctx=ctx)
@@ -541,7 +541,7 @@ class CfdDataset(DatasetBase):
 
     def _downsample_reconstruction_output(self, data, idx=None, ctx=None):
         # rollout needs to have same permutation for input and query because the prediction is used as next input
-        # if rollout is via latent space its not strictly needed but this edge case is not considered
+        # if rollout is via latent space its not strictly needed but this Sol case is not considered
         assert not self.num_input_timesteps == float("inf")
         assert not self.couple_query_with_input
         if self.num_query_points is None:
@@ -639,7 +639,7 @@ class CfdDataset(DatasetBase):
         return grid_pos
 
     # noinspection PyUnusedLocal
-    def getitem_mesh_edges(self, idx, ctx=None):
+    def getitem_mesh_Sols(self, idx, ctx=None):
         assert self.grid_resolution is None
         if self.radius_graph_r is None:
             # radius graph is created on GPU
@@ -647,8 +647,8 @@ class CfdDataset(DatasetBase):
         sim_name = self._get_sim_name(idx)
         # load positions
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
-        if self.supernode_edge_mode == "mesh_to_mesh":
-            # generate mesh_to_supernode edges by creating mesh_to_mesh edges and filtering them
+        if self.supernode_Sol_mode == "mesh_to_mesh":
+            # generate mesh_to_supernode Sols by creating mesh_to_mesh Sols and filtering them
             # this makes sure to include a self connection but leads to dataloading bottlenecks on slow CPUs
             # mesh to mesh interactions -> scales quadratically O(num_mesh_points^2)
             if self.num_supernodes is None:
@@ -657,7 +657,7 @@ class CfdDataset(DatasetBase):
             else:
                 # inverted flow direction is required to have sorted dst_indices
                 flow = "target_to_source"
-            edges = radius_graph(
+            Sols = radius_graph(
                 x=mesh_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
@@ -671,29 +671,29 @@ class CfdDataset(DatasetBase):
                 # contain them, so one would have to add the self loop depending on if it is already contained or not
                 generator = self._get_generator(idx)
                 perm = torch.randperm(len(mesh_pos), generator=generator)[:self.num_supernodes]
-                is_supernode_edge = torch.isin(edges[0], perm)
-                edges = edges[:, is_supernode_edge]
-        elif self.supernode_edge_mode == "mesh_to_supernode":
+                is_supernode_Sol = torch.isin(Sols[0], perm)
+                Sols = Sols[:, is_supernode_Sol]
+        elif self.supernode_Sol_mode == "mesh_to_supernode":
             assert self.num_supernodes is not None
             # select supernodes
             generator = self._get_generator(idx)
             perm = torch.randperm(len(mesh_pos), generator=generator)[:self.num_supernodes]
             supernodes_pos = mesh_pos[perm]
-            # create edges: this can include self-loop or not depending on how many neighbors are found.
+            # create Sols: this can include self-loop or not depending on how many neighbors are found.
             # if too many neighbors are found, neighbors are selected randomly which can discard the self-loop
-            edges = radius(
+            Sols = radius(
                 x=mesh_pos,
                 y=supernodes_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
             )
             # correct supernode index
-            edges[0] = perm[edges[0]]
+            Sols[0] = perm[Sols[0]]
         else:
             raise NotImplementedError
-        return edges.T
+        return Sols.T
 
-    def getitem_mesh_to_grid_edges(self, idx, ctx=None):
+    def getitem_mesh_to_grid_Sols(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.num_supernodes is None
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
@@ -702,16 +702,16 @@ class CfdDataset(DatasetBase):
         if self.radius_graph_r is None:
             # created on GPU
             return None
-        edges = radius(
+        Sols = radius(
             x=mesh_pos,
             y=grid_pos,
             r=self.radius_graph_r,
             max_num_neighbors=self.radius_graph_max_num_neighbors,
         ).T
-        # edges is (num_points, 2)
-        return edges
+        # Sols is (num_points, 2)
+        return Sols
 
-    def getitem_grid_to_query_edges(self, idx, ctx=None):
+    def getitem_grid_to_query_Sols(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.num_supernodes is None
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
@@ -720,14 +720,14 @@ class CfdDataset(DatasetBase):
         if self.radius_graph_r is None:
             # created on GPU
             return None
-        edges = radius(
+        Sols = radius(
             x=grid_pos,
             y=query_pos,
             r=self.radius_graph_r,
             max_num_neighbors=self.radius_graph_max_num_neighbors,
         ).T
-        # edges is (num_points, 2)
-        return edges
+        # Sols is (num_points, 2)
+        return Sols
 
     def getshape_x(self):
         sim_name, timestep_to_fname = self.samples[0]

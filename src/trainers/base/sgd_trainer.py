@@ -131,13 +131,11 @@ class SgdTrainer(nn.Module):
         self.early_stopper = create(early_stopper, early_stopper_from_kwargs)
         self.main_sampler_kwargs = main_sampler_kwargs or {}
         self.train_dataset, self.main_collator = self.data_container.get_dataset("train", mode=self.dataset_mode)
-        print('Collator is (in SgdTrainer)',self.main_collator)
         self.main_sampler = self.data_container.get_main_sampler(
             train_dataset=self.train_dataset,
             **self.main_sampler_kwargs,
         )
-        print('Sampler is (in SgdTrainer)',self.main_sampler)
-        print('Sampler kwargs are (in SgdTrainer)',self.main_sampler_kwargs)
+ 
         eff_len = self.main_sampler.effective_length
         assert eff_len >= self.effective_batch_size, f"{eff_len}<{self.effective_batch_size}"
         self.updates_per_epoch = int(eff_len / self.effective_batch_size)
@@ -440,8 +438,7 @@ class SgdTrainer(nn.Module):
         kwargs = {}
         if self.start_checkpoint.epoch != 0:
             kwargs["start_epoch"] = self.start_checkpoint.epoch
-        print('collator is (get_data_loader): ',self.main_collator)
-        print('sampler is (get_data_loader): ',self.main_sampler)
+
         return self.data_container.get_data_loader(
             main_sampler=self.main_sampler,
             main_collator=self.main_collator,
@@ -522,7 +519,6 @@ class SgdTrainer(nn.Module):
         trainer_model = trainer_model.to(model.device)
 
         data_loader = self.get_data_loader(periodic_callbacks=periodic_callbacks, batch_size=batch_size)
-        print('data loader is (SgdTrainer)', data_loader)
         self.call_before_training(trainer_model=trainer_model, batch_size=batch_size, callbacks=callbacks)
         self._train(
             model=model,
@@ -587,7 +583,6 @@ class SgdTrainer(nn.Module):
                 iter_step = -1
                 data_time = 0.
                 update_time = 0.
-                print('iter step is: ',iter_step)
                 while True:
                     # check end of epoch
                     remaining_batches = train_batches_per_epoch - (iter_step + 1)
@@ -603,11 +598,7 @@ class SgdTrainer(nn.Module):
                         # load next batch
                         with kp.named_profile("data_loading"):
                             batch = next(data_iter)
-                            print('Batch is (1): ',batch)
-                            batch = next(data_iter)
-                            print('Batch is (2): ',batch)
                             iter_step += 1
-                            exit(0)
                         if iter_step % accumulation_steps == 0:
                             model.optim_schedule_step()
                             data_time = 0.
@@ -619,7 +610,6 @@ class SgdTrainer(nn.Module):
                         trainer_model.train()
                         # update contains implicit cuda synchronization points (.detach().cpu(), .item())
                         with kp.named_profile("update"):
-                            print('model update')
                             losses, update_outputs = self.update(
                                 batch=batch,
                                 iter_step=iter_step,
@@ -629,10 +619,8 @@ class SgdTrainer(nn.Module):
                                 periodic_callbacks=periodic_callbacks,
                                 is_first_update=is_first_update,
                             )
-                        print('model updated at iteration ',iter_step)
                         update_time += kp.profiler.last_node.last_time
                         for callback in periodic_callbacks:
-                            print('Callback is: ',callback)
                             callback.track_after_accumulation_step(
                                 update_counter=self.update_counter,
                                 trainer=self,
@@ -641,7 +629,6 @@ class SgdTrainer(nn.Module):
                                 update_outputs=update_outputs,
                                 accumulation_steps=accumulation_steps,
                             )
-                            print(f'callback {callback} done')
                             
                         # free references to tensors
                         # noinspection PyUnusedLocal
@@ -654,7 +641,6 @@ class SgdTrainer(nn.Module):
                     if is_last_update_in_epoch:
                         self.update_counter.next_epoch()
 
-                    print('model evaluation')
                     trainer_model.eval()
                     times = dict(data_time=data_time, update_time=update_time)
                     for callback in periodic_callbacks:
@@ -664,7 +650,6 @@ class SgdTrainer(nn.Module):
                             model=model,
                             times=times,
                         )
-                    print('here 1')
                     for callback in periodic_callbacks:
                         callback.after_update(
                             update_counter=self.update_counter,
@@ -675,25 +660,21 @@ class SgdTrainer(nn.Module):
                             trainer_model=trainer_model,
                             data_iter=data_iter,
                         )
-                    print('here 2')
                     # check end of training
                     if self.update_counter.is_finished:
                         # skip preloaded batches after training when accumulation steps > 1
                         if data_loader.batch_sampler.sampler.epochs is not None:
                             for _ in range(remaining_batches - accumulation_steps):
                                 b = next(data_iter)
-                                print(f'1st emptying batch  {b}') 
                         if data_loader.batch_sampler.sampler.samples is not None:
                             total_batches = int(data_loader.batch_sampler.sampler.samples / batch_size)
                             for _ in range(total_batches % accumulation_steps):
                                 b = next(data_iter)
-                                print(f'2nd emptying batch  {b}')
                         break
 
                     # no end of epoch -> flush logs from call_after_update
                     if not is_last_update_in_epoch:
                         CallbackBase.flush()
-                    print('check early stop')
                     # check update/sample based early stopping
                     if self.early_stopper is not None:
                         should_stop_after_update = self.early_stopper.should_stop_after_update(
@@ -720,7 +701,6 @@ class SgdTrainer(nn.Module):
 
                 if self.update_counter.is_full_epoch:
                     for callback in periodic_callbacks:
-                        print('after epoch callbacks ', callback)
                         callback.after_epoch(
                             update_counter=self.update_counter,
                             effective_batch_size=self.effective_batch_size,
@@ -730,8 +710,6 @@ class SgdTrainer(nn.Module):
                             trainer_model=trainer_model,
                             data_iter=data_iter,
                         )
-                        print(f"{callback} done")
-                    print('after epoch callbacks done')
 
                     # check epoch based early stopping
                     if self.early_stopper is not None:
@@ -743,12 +721,10 @@ class SgdTrainer(nn.Module):
                             self.logger.info(f"reached stop_at_epoch (={self.stop_at_epoch}) -> stop training")
                             return
                     CallbackBase.flush()
-                print('end of epoch')
                 # check end of training
                 if self.update_counter.is_finished:
                     break
         # check that data_iter was fully consumed
-        print('end of training')
         unconsumed_data_iter_steps = 0
         try:
             next(data_iter)
@@ -774,7 +750,6 @@ class SgdTrainer(nn.Module):
     ):
         model.before_accumulation_step()
 
-        print('Inside update batch is ', batch)
         with kp.named_profile_async("forward"):
             with self.autocast_context:
                 losses, outputs = ddp_model(batch)

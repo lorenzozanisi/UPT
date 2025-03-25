@@ -24,16 +24,16 @@ class GNNMeshEmbedV2(torch.nn.Module):
         self.pool = SAGPoolingFixedNumNodes(pool_dim, num_output_nodes=num_output_nodes)
         self.out_proj = nn.Linear(pool_dim, self.output_dim)
 
-    def forward(self, x, pos, edge_index, batch_idx):
+    def forward(self, x, pos, Sol_index, batch_idx):
         # embed + GNN
         x = self.gnn_proj(x)
         x = x + self.pos_embed(pos)
-        x = self.gnn_layer(x, pos, edge_index.T)
+        x = self.gnn_layer(x, pos, Sol_index.T)
 
         # pool
         x = self.pool_proj(x)
-        pool_result = self.pool(x, edge_index.T, batch=batch_idx)
-        # x_pool, edge_index_pool, edge_attr_pool, batch_pool, perm, score = pool_result
+        pool_result = self.pool(x, Sol_index.T, batch=batch_idx)
+        # x_pool, Sol_index_pool, Sol_attr_pool, batch_pool, perm, score = pool_result
         x_pool, _, _, batch_pool, _, _ = pool_result
         x_pool = self.out_proj(x_pool)
 

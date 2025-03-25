@@ -3,6 +3,7 @@ import scipy
 import os
 import shutil
 from functools import lru_cache
+import logging
 
 import meshio
 import h5py
@@ -16,7 +17,7 @@ import pickle
 from .base.dataset_base import DatasetBase
 
 
-class Edge2d(DatasetBase):
+class Sol(DatasetBase):
     def __init__(
             self,
             split,
@@ -37,7 +38,7 @@ class Edge2d(DatasetBase):
             **kwargs,
     ):
         """
-        Edge2D dataset for the edge2d-based models.
+        Edge2D dataset for the Sol-based models.
         Args:
             split (str): Split of the dataset, either "train" or "test".
             radius_graph_r (float): Radius for the graph construction.
@@ -73,23 +74,18 @@ class Edge2d(DatasetBase):
         else:
             self.grid_resolution = None
 
-        # define spatial min/max of simulation (for normalizing to [0, 1] and then scaling to [0, 200] for pos_embed)
-        # min: [-1.7978, -0.7189, -4.2762]
-        # max: [1.8168, 4.3014, 5.8759]
-        self.domain_min = torch.tensor([1.05,-4.83])
-        self.domain_max = torch.tensor([11.73,7.19])
         self.scale = 200
         self.standardize_query_pos = standardize_query_pos
         self.concat_pos_to_sdf = concat_pos_to_sdf
 
-        global_root, local_root = self._get_roots(global_root, local_root, "edge2d")
+        global_root, local_root = self._get_roots(global_root, local_root, "sol")
         if local_root is None:
             # load data from global_root
             self.source_root = global_root / "preprocessed"
             self.logger.info(f"data_source (global): '{self.source_root}'")
         else:
             # load data from local_root
-            self.source_root = local_root / "edge2d"
+            self.source_root = local_root / "sol"
             if is_data_rank0():
                 # copy data from global to local
                 self.logger.info(f"data_source (global): '{global_root}'")
@@ -115,48 +111,75 @@ class Edge2d(DatasetBase):
             if name!='.' and not (name.endswith('pkl') or name.endswith('csv') or name.endswith('json')):
                 uri = self.source_root / name
                 self.uris.append(uri)
-                print('discvoered uri', uri)
-        print(f'Discovered {len(self.uris)} uris: ', self.uris)
+        logging.info(f'Discovered {len(self.uris)} uris')
 
-        self.conditions = self.load_conditions()
+        if self.conditioning_vars_fname is not None:
+            self.conditions = self.load_conditions()
+        else:
+            logging.info(f"Could not find conditioning_vars_fname, defaulting to no conditioning")
+            self.conditions = None
+        
+        # if split == "train":
+        #     train_idxs = self.conditions.query('train==True').index
+        #     self.uris = [self.uris[train_idx] for train_idx in train_idxs]
+        # elif split == "test":
+        #     test_idxs = self.conditions.query('test==False').index
+        #     self.uris = [self.uris[test_idx] for test_idx in test_idxs] # self.TEST_INDICES]
+
+        # else:
+        #     raise NotImplementedError
+                        
+        if split == "train":
+            self.conditions = self.conditions.query('train==True')
+        elif split == "test":
+            self.conditions = self.conditions.query('test==True')
+        else:
+            raise NotImplementedError
+        
         if smoke_test:
             self.uris = [self.uris[0]]
         else:
             # filter uris for indices that satisfy the conditions in the conditions dataframe
             # uris are now indexed not by the index of the conditions dataframe but by their position in the list
-            tmp_uris = []
-            for idx in self.conditions.index:
-                try:
-                    tmp_uris.append(self.uris[idx])
-                except IndexError:
-                    self.conditions = self.conditions.drop(index=idx)
-            self.uris = tmp_uris
+            if self.conditions is not None:
+                tmp_uris = []
+                for idx in self.conditions.index:
+                    try:
+                        tmp_uris.append(self.uris[idx])
+                    except IndexError:
+                        self.conditions = self.conditions.drop(index=idx)
+                self.uris = tmp_uris
+            else:
+                # --- use all
+                pass
             #self.uris = [self.uris[idx] for idx in self.conditions.index if os.path.exists(self.uris[idx])]
-            
+        logging.info(f'Retained {len(self.uris)} uris based on file {self.conditioning_vars_fname}')
+        # split into train/test uris
 
-        # # split into train/test uris
-        # if split == "train":
-        #     train_idx = 0 # [i for i in range(len(self.uris)) if i not in self.TEST_INDICES][0]
-        #     self.uris = [self.uris[train_idx]]# for train_idx in train_idxs]
-        # elif split == "test":
-        #     test_idx = 0
-        #     self.uris = [self.uris[test_idx]]# for test_idx in test_idxs] # self.TEST_INDICES]
 
-        # else:
-        #     raise NotImplementedError
+        self.conditions = self.scale_conditions()
 
     def __len__(self):
         return len(self.uris)
     
     # noinspection PyUnusedLocal
+    # TODO: to implement class for loading, scaling and unscaling conditions
     def load_conditions(self):
-        conditions = pd.read_pickle(self.source_root / self.conditioning_vars_fname)[self.conditioning_vars]
+        conditions = pd.read_pickle(self.source_root / self.conditioning_vars_fname)
+        return conditions
+                           
+    def scale_conditions(self):
+        metadata = set(self.conditions.columns) - set(self.conditioning_vars)
+        df_meta = self.conditions[list(metadata)]
+        conditions = self.conditions[self.conditioning_vars]
+        index = conditions.index
         mean = conditions.values.mean(axis=0)
         scaled = conditions.values-mean
         std = scaled.std(axis=0)
-        conditions = pd.DataFrame(scaled / std, columns=self.conditioning_vars, dtype=np.float16)
+        conditions = pd.DataFrame(scaled / std, columns=self.conditioning_vars, dtype=np.float16, index=index)
+        conditions = pd.merge(df_meta, conditions, left_index=True, right_index=True)
         return conditions
-                               
+        
     # def getitem_target(self, idx, ctx=None):
     #     with h5py.File(self.uris[idx], 'r') as h5file:
     #         tmp = h5file[f"targets2d"]["target"][:]
@@ -207,6 +230,7 @@ class Edge2d(DatasetBase):
     def getnames_conditioning_vars(self):
         return self.conditioning_vars
     
+
     def getitem_connection_length(self, idx, ctx=None): 
         tmp = self.conditions.iloc[idx,"connection_length"]
         tmp = torch.tensor(tmp)
@@ -285,36 +309,36 @@ class Edge2d(DatasetBase):
         return grid_pos
 
     # --- Only used when using grid-based stuff such as GINO
-    def getitem_mesh_to_grid_edges(self, idx, ctx=None):
+    def getitem_mesh_to_grid_Sols(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
         # create graph between mesh and regular grid points
-        edges = radius(
+        Sols = radius(
             x=mesh_pos,
             y=grid_pos,
             r=self.radius_graph_r,
             max_num_neighbors=self.radius_graph_max_num_neighbors,
         ).T
-        # edges is (num_points, 2)
-        return edges
+        # Sols is (num_points, 2)
+        return Sols
     
     # --- Only used when using grid-based stuff such as GINO
-    def getitem_grid_to_query_edges(self, idx, ctx=None):
+    def getitem_grid_to_query_Sols(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         query_pos = self.getitem_query_pos(idx, ctx=ctx)
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
         # create graph between mesh and regular grid points
-        edges = radius(
+        Sols = radius(
             x=grid_pos,
             y=query_pos,
             r=self.radius_graph_r,
             max_num_neighbors=int(1e10),
         ).T
-        # edges is (num_points, 2)
-        return edges
+        # Sols is (num_points, 2)
+        return Sols
 
     def getitem_mesh_pos(self, idx, ctx=None):
         if ctx is not None and "mesh_pos" in ctx:
@@ -351,13 +375,27 @@ class Edge2d(DatasetBase):
         with h5py.File(self.uris[idx], 'r') as h5file:
             r = h5file["mesh"]["rmesh2d"][:]
             z = h5file["mesh"]["zmesh2d"][:]
-        all_pos = torch.from_numpy(np.vstack((r,z)).T)
-        #all_pos = torch.load(self.uris[idx] / "mesh_points.th")
+        r = torch.from_numpy(r)#-self.scaling_stats["rmesh2d"]["min"] #this ensures that the minimum value is 0
+        z = torch.from_numpy(z)#-self.scaling_stats["zmesh2d"]["min"] #this ensures that the minimum value is 0
+
+        #logging.info(f'Beofre: Rmin, rmax, zmin, zmax {r.min()}, {r.max()}, {z.min()}, {z.max()}')
+        r = (r-self.scaling_stats["rmesh2d"]["min"]) / (self.scaling_stats["rmesh2d"]["max"] - self.scaling_stats["rmesh2d"]["min"]) * self.scale
+        z = (z-self.scaling_stats["zmesh2d"]["min"]) / (self.scaling_stats["zmesh2d"]["max"] - self.scaling_stats["zmesh2d"]["min"]) * self.scale
+        # r.sub_(self.scaling_stats["rmesh2d"]["min"]).div_(self.scaling_stats["rmesh2d"]["max"] - self.scaling_stats["rmesh2d"]["min"]).mul_(self.scale)
+        # z.sub_(self.scaling_stats["zmesh2d"]["min"]).div_(self.scaling_stats["zmesh2d"]["max"] - self.scaling_stats["zmesh2d"]["min"]).mul_(self.scale)
+        #logging.info(f'After: Rmin, rmax, zmin, zmax {r.min()}, {r.max()}, {z.min()}, {z.max()}')
+
+        all_pos = torch.stack([r,z], dim=1)
+        #logging.info(f'all_pos has shape {all_pos.shape}')
+
+
+     #   all_pos = torch.from_numpy(np.vstack((r,z)).T)
+        ##all_pos = torch.load(self.uris[idx] / "mesh_points.th")
         # rescale for sincos positional embedding
-        all_pos.sub_(self.domain_min).div_(self.domain_max - self.domain_min).mul_(self.scale)
+     #   all_pos.sub_(self.scaling).div_(self.domain_max - self.domain_min).mul_(self.scale)
        
-        assert torch.all(0 < all_pos)
-        assert torch.all(all_pos < self.scale)
+        assert torch.all(0 <=all_pos)
+        assert torch.all(all_pos <= self.scale)
         if ctx is not None:
             ctx["all_pos"] = all_pos
         return all_pos
@@ -395,13 +433,13 @@ class Edge2d(DatasetBase):
         return None
 
     # noinspection PyUnusedLocal
-    def getitem_mesh_edges(self, idx, ctx=None):
+    def getitem_mesh_Sols(self, idx, ctx=None):
         assert self.radius_graph_r is not None
         # load mesh positions
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
         if self.num_supernodes is None:
             # create graph
-            edges = radius_graph(
+            Sols = radius_graph(
                 x=mesh_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
@@ -412,17 +450,17 @@ class Edge2d(DatasetBase):
             generator = self._get_generator(idx)
             perm = torch.randperm(len(mesh_pos), generator=generator)[:self.num_supernodes]
             supernodes_pos = mesh_pos[perm]
-            # create edges: this can include self-loop or not depending on how many neighbors are found.
+            # create Sols: this can include self-loop or not depending on how many neighbors are found.
             # if too many neighbors are found, neighbors are selected randomly which can discard the self-loop
-            edges = radius(
+            Sols = radius(
                 x=mesh_pos,
                 y=supernodes_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
             )
             # correct supernode index
-            edges[0] = perm[edges[0]]
-        return edges.T
+            Sols[0] = perm[Sols[0]]
+        return Sols.T
 
     # noinspection PyUnusedLocal
     # --- TODO

@@ -59,8 +59,8 @@ class OfflineLagrangianLargeTRolloutSpeedCallback(PeriodicCallback):
             timestep = ModeWrapper.get_item(mode=trainer.dataset_mode, item="timestep", batch=batch)
             timestep = timestep.to(model.device, non_blocking=True)
 
-        edge_index = ModeWrapper.get_item(mode=trainer.dataset_mode, item="edge_index", batch=batch)
-        edge_index = edge_index.to(model.device, non_blocking=True)
+        Sol_index = ModeWrapper.get_item(mode=trainer.dataset_mode, item="Sol_index", batch=batch)
+        Sol_index = Sol_index.to(model.device, non_blocking=True)
         batch_idx = ctx["batch_idx"].to(model.device, non_blocking=True)
 
         # inputs are the velocities of all timesteps
@@ -78,7 +78,7 @@ class OfflineLagrangianLargeTRolloutSpeedCallback(PeriodicCallback):
                 x=x,
                 all_pos=all_pos,
                 timestep=timestep,
-                edge_index=edge_index,
+                Sol_index=Sol_index,
                 batch_idx=batch_idx,
                 unbatch_idx=unbatch_idx,
                 unbatch_select=unbatch_select

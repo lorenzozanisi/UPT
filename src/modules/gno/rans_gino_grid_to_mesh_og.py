@@ -38,9 +38,9 @@ class RansGinoGridToMeshOg(nn.Module):
             nn.Linear(256, output_dim),
         )
 
-    def forward(self, x, query_pos, grid_to_query_edges):
+    def forward(self, x, query_pos, grid_to_query_Sols):
         assert query_pos.ndim == 2
-        assert grid_to_query_edges.ndim == 2
+        assert grid_to_query_Sols.ndim == 2
         # NOTE: we rescale all positions to [0, 200] instead of [-1, 1] -> revert
         query_pos = query_pos / 100 - 1
 
@@ -54,7 +54,7 @@ class RansGinoGridToMeshOg(nn.Module):
         query_pos = self.pos_embed(query_pos)
 
         # create message input
-        query_idx, grid_idx = grid_to_query_edges.unbind(1)
+        query_idx, grid_idx = grid_to_query_Sols.unbind(1)
         x = torch.concat([x[grid_idx], query_pos[query_idx]], dim=1)
         x = self.message(x)
         # accumulate messages

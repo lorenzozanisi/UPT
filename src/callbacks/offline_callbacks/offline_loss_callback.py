@@ -29,7 +29,6 @@ class OfflineLossCallback(PeriodicCallback):
 
     def _forward(self, batch, trainer_model, trainer):
         with trainer.autocast_context:
-            print('batch in OfflineLossCallback:', batch)
             losses, outputs = trainer_model(batch=batch, reduction="mean_per_sample", **self.forward_kwargs)
         losses = {name: loss.cpu() for name, loss in losses.items()}
         outputs_to_log = {}

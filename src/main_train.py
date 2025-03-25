@@ -20,6 +20,7 @@ from utils.pytorch_cuda_timing import cuda_start_event, cuda_end_event
 
 def main_single(device):
     cli_args = parse_run_cli_args()
+    logging.info(f'working directory: {os.getcwd()}')
     static_config = StaticConfig(uri="static_config.yaml", datasets_were_preloaded=cli_args.datasets_were_preloaded)
     add_global_handlers(log_file_uri=None)
     with log_from_all_ranks():

@@ -39,10 +39,10 @@ class RansGinoMeshToGridSdfOg(nn.Module):
             nn.Linear(256, output_dim),
         )
 
-    def forward(self, mesh_pos, sdf, grid_pos, mesh_to_grid_edges):
+    def forward(self, mesh_pos, sdf, grid_pos, mesh_to_grid_Sols):
         assert mesh_pos.ndim == 2
         assert grid_pos.ndim == 2
-        assert mesh_to_grid_edges.ndim == 2
+        assert mesh_to_grid_Sols.ndim == 2
         assert len(grid_pos) % self.num_grid_points == 0
         # NOTE: we rescale all positions to [0, 200] instead of [-1, 1] -> revert
         mesh_pos = mesh_pos / 100 - 1
@@ -65,7 +65,7 @@ class RansGinoMeshToGridSdfOg(nn.Module):
         grid_embed = torch.concat([grid_pos_embed, sdf_embed], dim=1)
 
         # create message input
-        grid_idx, mesh_idx = mesh_to_grid_edges.unbind(1)
+        grid_idx, mesh_idx = mesh_to_grid_Sols.unbind(1)
         x = torch.concat([mesh_pos[mesh_idx], grid_embed[grid_idx]], dim=1)
         x = self.message(x)
         # accumulate messages

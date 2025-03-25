@@ -9,7 +9,7 @@ from torch import nn
 from models.base.single_model_base import SingleModelBase
 
 
-class Edge2dPerceiver(SingleModelBase):
+class SolPerceiver(SingleModelBase):
     def __init__(
             self,
             dim,
@@ -17,6 +17,7 @@ class Edge2dPerceiver(SingleModelBase):
             init_weights="xavier_uniform",
             init_last_proj_zero=False,
             use_last_norm=False,
+            cond_dim=None,
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -34,7 +35,11 @@ class Edge2dPerceiver(SingleModelBase):
 
         # latent to pixels
         if "condition_dim" in self.static_ctx:
-            block_ctor = partial(DitPerceiverBlock, cond_dim=self.static_ctx["condition_dim"])
+            block_ctor = partial(
+                DitPerceiverBlock, 
+                cond_dim=self.static_ctx["condition_dim"],
+                init_weights=init_weights,
+            )
         else:
             block_ctor = PerceiverBlock        
         self.perceiver = block_ctor(
@@ -52,9 +57,9 @@ class Edge2dPerceiver(SingleModelBase):
         x = self.proj(x)
 
         # create query
-        query_pos_embed = self.pos_embed(query_pos)
-        query = self.query_mlp(query_pos_embed)
-
+        #query_pos_embed = self.pos_embed(query_pos)
+        #query = self.query_mlp(query_pos_embed)
+        query = self.pos_embed(query_pos)
         block_kwargs = {}
         if condition is not None:
             block_kwargs["cond"] = condition

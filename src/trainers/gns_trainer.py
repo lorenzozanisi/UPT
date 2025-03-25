@@ -74,7 +74,7 @@ class GnsTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "x curr_pos curr_pos_full edge_index timestep target_acc target_pos prev_pos prev_acc edge_features"
+        return "x curr_pos curr_pos_full Sol_index timestep target_acc target_pos prev_pos prev_acc Sol_features"
     
     def get_trainer_model(self, model):
         return self.Model(model=model, trainer=self)
@@ -94,8 +94,8 @@ class GnsTrainer(SgdTrainer):
             timestep = timestep.to(self.model.device, non_blocking=True)
             target_acc = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="target_acc", batch=batch)
             target_acc = target_acc.to(self.model.device, non_blocking=True)
-            edge_features = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="edge_features", batch=batch)
-            edge_features = edge_features.to(self.model.device, non_blocking=True)
+            Sol_features = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="Sol_features", batch=batch)
+            Sol_features = Sol_features.to(self.model.device, non_blocking=True)
             curr_pos = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="curr_pos", batch=batch)
             curr_pos = curr_pos.to(self.model.device, non_blocking=True)
             curr_pos_full = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="curr_pos_full", batch=batch)
@@ -104,8 +104,8 @@ class GnsTrainer(SgdTrainer):
             prev_pos = prev_pos.to(self.model.device, non_blocking=True)
             prev_acc = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="prev_acc", batch=batch)
             prev_acc = prev_acc.to(self.model.device, non_blocking=True)
-            edge_index = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="edge_index", batch=batch)
-            edge_index = edge_index.to(self.model.device, non_blocking=True)
+            Sol_index = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="Sol_index", batch=batch)
+            Sol_index = Sol_index.to(self.model.device, non_blocking=True)
             batch_idx = ctx["batch_idx"].to(self.model.device, non_blocking=True)
             unbatch_idx = ctx["unbatch_idx"].to(self.model.device, non_blocking=True)
             unbatch_select = ctx["unbatch_select"].to(self.model.device, non_blocking=True)
@@ -131,8 +131,8 @@ class GnsTrainer(SgdTrainer):
                 curr_pos=curr_pos,
                 curr_pos_decode=curr_pos_full,
                 prev_pos_decode=prev_pos,
-                edge_index=edge_index,
-                edge_features=edge_features,
+                Sol_index=Sol_index,
+                Sol_features=Sol_features,
                 batch_idx=batch_idx,
                 unbatch_idx=unbatch_idx,
                 unbatch_select=unbatch_select,
@@ -151,7 +151,7 @@ class GnsTrainer(SgdTrainer):
             total_loss = losses["a_hat"]
             infos = {
                 # calculate degree of graph (average number of connections p)
-                "degree/input": len(edge_index) / len(x)
+                "degree/input": len(Sol_index) / len(x)
             }
 
             return dict(total=total_loss, **losses), infos

@@ -69,7 +69,7 @@ class CfdBaselineTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "x mesh_pos grid_pos query_pos mesh_to_grid_edges grid_to_query_edges timestep velocity target"
+        return "x mesh_pos grid_pos query_pos mesh_to_grid_Sols grid_to_query_Sols timestep velocity target"
 
     def get_trainer_model(self, model):
         return self.Model(model=model, trainer=self)
@@ -99,21 +99,21 @@ class CfdBaselineTrainer(SgdTrainer):
                 target=self.to_device(item="target", batch=batch, dataset_mode=dataset_mode),
                 batch_idx=batch_idx,
             )
-            mesh_to_grid_edges = ModeWrapper.get_item(item="mesh_to_grid_edges", batch=batch, mode=dataset_mode)
-            grid_to_query_edges = ModeWrapper.get_item(item="grid_to_query_edges", batch=batch, mode=dataset_mode)
+            mesh_to_grid_Sols = ModeWrapper.get_item(item="mesh_to_grid_Sols", batch=batch, mode=dataset_mode)
+            grid_to_query_Sols = ModeWrapper.get_item(item="grid_to_query_Sols", batch=batch, mode=dataset_mode)
             batch_size = len(data["timestep"])
-            if mesh_to_grid_edges is None or grid_to_query_edges is None:
+            if mesh_to_grid_Sols is None or grid_to_query_Sols is None:
                 assert len(data["grid_pos"]) % batch_size == 0
                 num_grid_points = len(data["grid_pos"]) // batch_size
                 grid_batch_idx = torch.arange(batch_size, device=self.model.device).repeat_interleave(num_grid_points)
             else:
                 grid_batch_idx = None
-            # mesh_to_grid_edges
-            if mesh_to_grid_edges is None:
+            # mesh_to_grid_Sols
+            if mesh_to_grid_Sols is None:
                 # create on GPU
                 assert self.trainer.radius_graph_r is not None
                 assert self.trainer.radius_graph_max_num_neighbors is not None
-                mesh_to_grid_edges = radius(
+                mesh_to_grid_Sols = radius(
                     x=data["mesh_pos"],
                     y=data["grid_pos"],
                     batch_x=batch_idx,
@@ -124,17 +124,17 @@ class CfdBaselineTrainer(SgdTrainer):
             else:
                 assert self.trainer.radius_graph_r is None
                 assert self.trainer.radius_graph_max_num_neighbors is None
-                mesh_to_grid_edges = mesh_to_grid_edges.to(self.model.device, non_blocking=True)
-            data["mesh_to_grid_edges"] = mesh_to_grid_edges
-            # grid_to_query_edges
-            if grid_to_query_edges is None:
+                mesh_to_grid_Sols = mesh_to_grid_Sols.to(self.model.device, non_blocking=True)
+            data["mesh_to_grid_Sols"] = mesh_to_grid_Sols
+            # grid_to_query_Sols
+            if grid_to_query_Sols is None:
                 # create on GPU
                 assert self.trainer.radius_graph_r is not None
                 assert self.trainer.radius_graph_max_num_neighbors is not None
                 assert len(data["query_pos"]) % batch_size == 0
                 num_query_pos = len(data["query_pos"]) // batch_size
                 query_batch_idx = torch.arange(batch_size, device=self.model.device).repeat_interleave(num_query_pos)
-                grid_to_query_edges = radius(
+                grid_to_query_Sols = radius(
                     x=data["grid_pos"],
                     y=data["query_pos"],
                     batch_x=grid_batch_idx,
@@ -145,8 +145,8 @@ class CfdBaselineTrainer(SgdTrainer):
             else:
                 assert self.trainer.radius_graph_r is None
                 assert self.trainer.radius_graph_max_num_neighbors is None
-                grid_to_query_edges = grid_to_query_edges.to(self.model.device, non_blocking=True)
-            data["grid_to_query_edges"] = grid_to_query_edges
+                grid_to_query_Sols = grid_to_query_Sols.to(self.model.device, non_blocking=True)
+            data["grid_to_query_Sols"] = grid_to_query_Sols
 
             return data
 
@@ -183,8 +183,8 @@ class CfdBaselineTrainer(SgdTrainer):
 
             # infos
             infos = {
-                "degree/input": len(data["mesh_to_grid_edges"]) / len(data["grid_pos"]),
-                "degree/output": len(data["grid_to_query_edges"]) / len(target),
+                "degree/input": len(data["mesh_to_grid_Sols"]) / len(data["grid_pos"]),
+                "degree/output": len(data["grid_to_query_Sols"]) / len(target),
             }
 
             return dict(total=losses["x_hat"], **losses), infos

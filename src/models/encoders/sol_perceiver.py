@@ -11,7 +11,7 @@ from models.base.single_model_base import SingleModelBase
 from optimizers.param_group_modifiers.exclude_from_wd_by_name_modifier import ExcludeFromWdByNameModifier
 
 
-class Edge2dPerceiver(SingleModelBase):
+class SolPerceiver(SingleModelBase):
     def __init__(
             self,
             dim,
@@ -20,6 +20,7 @@ class Edge2dPerceiver(SingleModelBase):
             add_type_token=False,
             init_weights="xavier_uniform",
             init_last_proj_zero=False,
+            cond_dim=None,
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -36,12 +37,12 @@ class Edge2dPerceiver(SingleModelBase):
         self.pos_embed = ContinuousSincosEmbed(dim=dim, ndim=ndim)
 
         # perceiver
-        self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
+        #self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
         if "condition_dim" in self.static_ctx:
             block_ctor = partial(
-                DitPerceiverPoolingBlock,
-                perceiver_kwargs=dict(
-                    cond_dim=self.static_ctx["condition_dim"],
+                    DitPerceiverPoolingBlock,
+                    perceiver_kwargs=dict(
+                    cond_dim=self.static_ctx["condition_dim"],# this should be the same as the dim of the condition - not sure how to do that
                     init_weights=init_weights,
                 ),
             )
@@ -98,7 +99,7 @@ class Edge2dPerceiver(SingleModelBase):
         if condition is not None:
             block_kwargs["cond"] = condition
         # perceiver - NOTE: attn_mask is not used in the cfd cases? What's attn mask?
-        x = self.mlp(x)
+      #  x = self.mlp(x)
         x = self.block(kv=x, attn_mask=mask, **block_kwargs) 
 
         if self.add_type_token:

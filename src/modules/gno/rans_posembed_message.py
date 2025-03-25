@@ -22,9 +22,9 @@ class RansPosembedMessage(MessagePassing):
             nn.Linear(dim, dim),
         )
 
-    def forward(self, mesh_pos, mesh_edges):
+    def forward(self, mesh_pos, mesh_Sols):
         x = self.pos_embed(mesh_pos)
-        x = self.propagate(x=x, pos=mesh_pos, edge_index=mesh_edges.T)
+        x = self.propagate(x=x, pos=mesh_pos, Sol_index=mesh_Sols.T)
         return x
 
     # noinspection PyMethodOverriding
@@ -38,5 +38,5 @@ class RansPosembedMessage(MessagePassing):
     def message_and_aggregate(self, adj_t):
         raise NotImplementedError
 
-    def edge_update(self):
+    def Sol_update(self):
         raise NotImplementedError

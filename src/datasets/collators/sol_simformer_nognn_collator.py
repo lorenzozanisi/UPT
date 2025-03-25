@@ -5,7 +5,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import default_collate
 
 
-class Edge2dSimformerNognnCollator(KDSingleCollator):
+class SolSimformerNognnCollator(KDSingleCollator):
     def collate(self, batch, dataset_mode, ctx=None):
         # make sure that batch was not collated
         assert isinstance(batch, (tuple, list)) and isinstance(batch[0], tuple)

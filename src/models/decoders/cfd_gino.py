@@ -21,11 +21,11 @@ class CfdGino(SingleModelBase):
             ndim=self.static_ctx["ndim"],
         )
 
-    def forward(self, x, grid_pos, query_pos, grid_to_query_edges):
+    def forward(self, x, grid_pos, query_pos, grid_to_query_Sols):
         x = self.grid_to_mesh(
             x,
             query_pos=query_pos,
-            grid_to_query_edges=grid_to_query_edges,
+            grid_to_query_Sols=grid_to_query_Sols,
         )
 
         if self.clamp is not None:

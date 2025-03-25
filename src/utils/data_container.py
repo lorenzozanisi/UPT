@@ -156,6 +156,7 @@ class DataContainer:
             start_epoch=None,
     ):
         print('main sampler (in DataContainer):', main_sampler)
+        print('main collator (in DataContainer):', main_collator)
         sampler = kd.InterleavedSampler(
             main_sampler=main_sampler,
             batch_size=batch_size,

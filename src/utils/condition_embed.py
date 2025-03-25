@@ -18,12 +18,12 @@ class ContinuousConditionEmbed(nn.Module):
         super().__init__()
         self.dim = dim
         self.n_cond = n_cond
-        self.ndim_padding = dim % n_cond
-        dim_per_ndim = (dim - self.ndim_padding) // n_cond
-        self.sincos_padding = dim_per_ndim % 2
+        #self.ndim_padding = dim % n_cond
+        #dim_per_ndim = (dim - self.ndim_padding) // n_cond
+        #self.sincos_padding = dim_per_ndim % 2
         self.max_wavelength = max_wavelength
-        self.padding = self.ndim_padding + self.sincos_padding * n_cond
-        cond_per_wave = (self.dim - self.padding) // n_cond
+        #self.padding = self.ndim_padding + self.sincos_padding * n_cond
+        cond_per_wave = self.dim  // n_cond
         assert cond_per_wave > 0
         self.register_buffer(
             "omega",
@@ -34,6 +34,7 @@ class ContinuousConditionEmbed(nn.Module):
             nn.Linear(dim, self.cond_dim),
             nn.SiLU(),
         )
+
 
         if init_weights is not None:
             self.reset_parameters(init_weights)

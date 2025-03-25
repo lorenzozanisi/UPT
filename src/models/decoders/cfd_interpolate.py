@@ -26,7 +26,7 @@ class CfdInterpolate(SingleModelBase):
         )
         self.resolution = self.static_ctx["grid_resolution"]
 
-    def forward(self, x, grid_pos, query_pos, grid_to_query_edges):
+    def forward(self, x, grid_pos, query_pos, grid_to_query_Sols):
         # TODO variable query pos not supported
         assert len(query_pos) % len(x) == 0
         query_pos = einops.rearrange(

@@ -1,0 +1,90 @@
+wandb: wandb_config
+name: snc-all-nosdf-e1000-subsam08to1-lr5e4-perconly-seqlen64-dim1024x12-wd5-sd03unif-uselastnorm
+stage_name: stage1
+vars:
+  lr: 5.0e-4
+  batch_size: 16
+  max_batch_size: 32
+  epochs: 5000
+  conditioning_vars:
+    - psep
+    - pumped_neutral_flux
+    - particle_flux_omp
+    - deuterium_puff_values
+  cond_dim: 4
+  smoke_test: False
+  optim:
+    kind: adamw
+    lr: ${vars.lr}
+    weight_decay: 5.0
+    schedule:
+      template: ${yaml:schedules/wupcos_epoch}
+      template.vars.end_epoch: 50
+
+datasets:
+  train:
+    kind: sol
+    split: train
+    #num_input_points_ratio: None #[ 0.8, 1.0 ]
+    conditioning_vars: ${vars.conditioning_vars}
+    conditioning_vars_fname: ILW_deuterium_only.pkl
+    smoke_test: ${vars.smoke_test} 
+    collators:
+      - kind: sol_simformer_nognn_collator
+  test: 
+    kind: sol
+    split: test
+    conditioning_vars: ${vars.conditioning_vars}
+    conditioning_vars_fname: ILW_deuterium_only.pkl
+    smoke_test: ${vars.smoke_test}
+    collators:
+      - kind: sol_simformer_nognn_collator
+
+model:
+
+  kind: sol_simformer_nognn_model
+  cond_dim: ${vars.cond_dim}
+  conditioner:
+    kind: conditioners.sol_conditioner
+    kwargs:
+      dim: ${select:dim384:${yaml:models/dim}}
+    optim: ${vars.optim}
+    cond_dim: ${vars.cond_dim}
+  encoder:
+    kind: encoders.sol_perceiver
+    num_output_tokens: 64
+    kwargs: ${select:dim1024:${yaml:models/encoders/perceiver}}
+    optim: ${vars.optim}
+  latent:
+    kind: latent.transformer_model_sol
+    init_weights: truncnormal
+    drop_path_rate: 0.3
+    drop_path_decay: false
+    kwargs: ${select:dim384depth12:${yaml:models/latent/transformer}}
+    optim: ${vars.optim}
+  decoder:
+    kind: decoders.sol_perceiver
+    init_weights: truncnormal
+    use_last_norm: true
+    kwargs: ${select:dim1024:${yaml:models/decoders/perceiver}}
+    optim: ${vars.optim}
+
+trainer:
+  kind: sol_simformer_nognn_trainer
+  precision: bfloat16
+  backup_precision: float16
+  max_epochs: ${vars.epochs}
+  effective_batch_size: ${vars.batch_size}
+  max_batch_size: ${vars.max_batch_size}
+  loss_function:
+    kind: elementwise_loss
+    loss_function:
+      kind: mse_loss
+  log_every_n_epochs: 1
+  callbacks:
+    - kind: offline_loss_callback
+      every_n_epochs: 1
+      dataset_key: test
+    - kind: best_checkpoint_callback
+      every_n_epochs: 1
+      metric_key: loss/test/total

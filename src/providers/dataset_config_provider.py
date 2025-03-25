@@ -14,6 +14,7 @@ class DatasetConfigProvider:
         self.data_source_modes = data_source_modes
 
     def get_global_dataset_path(self, dataset_identifier):
+        print('Getting datasets',self.global_dataset_paths, dataset_identifier)
         path = self.global_dataset_paths[dataset_identifier]
         path = Path(path).expanduser()
         # enforce path exists (e.g. mnist/cifar are downloaded automatically)

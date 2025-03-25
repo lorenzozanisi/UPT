@@ -43,31 +43,31 @@ class RansBaselineCollator(KDSingleCollator):
             query_pos.append(item)
         collated_batch["query_pos"] = torch.concat(query_pos)
 
-        # sparse mesh_to_grid_edges: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
-        mesh_to_grid_edges = []
+        # sparse mesh_to_grid_Sols: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
+        mesh_to_grid_Sols = []
         mesh_offset = 0
         grid_offset = 0
         for i in range(len(batch)):
-            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_to_grid_edges")
+            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_to_grid_Sols")
             idx[:, 0] += grid_offset
             idx[:, 1] += mesh_offset
-            mesh_to_grid_edges.append(idx)
+            mesh_to_grid_Sols.append(idx)
             mesh_offset += mesh_lens[i]
             grid_offset += grid_lens[i]
-        collated_batch["mesh_to_grid_edges"] = torch.concat(mesh_to_grid_edges)
+        collated_batch["mesh_to_grid_Sols"] = torch.concat(mesh_to_grid_Sols)
 
-        # sparse grid_to_query_edges: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
-        grid_to_query_edges = []
+        # sparse grid_to_query_Sols: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
+        grid_to_query_Sols = []
         mesh_offset = 0
         grid_offset = 0
         for i in range(len(batch)):
-            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="grid_to_query_edges")
+            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="grid_to_query_Sols")
             idx[:, 0] += mesh_offset
             idx[:, 1] += grid_offset
-            grid_to_query_edges.append(idx)
+            grid_to_query_Sols.append(idx)
             mesh_offset += mesh_lens[i]
             grid_offset += grid_lens[i]
-        collated_batch["grid_to_query_edges"] = torch.concat(grid_to_query_edges)
+        collated_batch["grid_to_query_Sols"] = torch.concat(grid_to_query_Sols)
 
         # to sparse tensor: batch_size * (num_mesh_points,) -> (batch_size * num_mesh_points, 1)
         pressure = []

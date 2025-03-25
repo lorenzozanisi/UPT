@@ -119,22 +119,22 @@ class CfdSimformerCollator(KDSingleCollator):
         ctx["unbatch_idx"] = unbatch_idx
         ctx["unbatch_select"] = unbatch_select
 
-        # sparse mesh_edges:  batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
-        mesh_edges = []
-        mesh_edges_offset = 0
+        # sparse mesh_Sols:  batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
+        mesh_Sols = []
+        mesh_Sols_offset = 0
         for i in range(len(batch)):
-            item = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_edges")
+            item = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_Sols")
             # if None -> create graph on GPU
             if item is None:
                 break
-            idx = item + mesh_edges_offset
-            mesh_edges.append(idx)
-            mesh_edges_offset += mesh_lens[i]
-        if len(mesh_edges) > 0:
+            idx = item + mesh_Sols_offset
+            mesh_Sols.append(idx)
+            mesh_Sols_offset += mesh_lens[i]
+        if len(mesh_Sols) > 0:
             # noinspection PyTypedDict
-            collated_batch["mesh_edges"] = torch.concat(mesh_edges)
+            collated_batch["mesh_Sols"] = torch.concat(mesh_Sols)
         else:
-            collated_batch["mesh_edges"] = None
+            collated_batch["mesh_Sols"] = None
 
         # normal collation for other properties (timestep, velocity, geometry2d)
         result = []

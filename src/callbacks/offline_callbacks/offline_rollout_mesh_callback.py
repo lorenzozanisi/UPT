@@ -79,7 +79,7 @@ class OfflineRolloutMeshCallback(PeriodicCallback):
 
     @property
     def dataset_mode(self):
-        return "index pos edge_index x geometry2d velocity"
+        return "index pos Sol_index x geometry2d velocity"
 
     def _register_sampler_configs(self, trainer):
         self.__config_id = self._register_sampler_config_from_key(key=self.dataset_key, mode=self.dataset_mode)
@@ -228,8 +228,8 @@ class OfflineRolloutMeshCallback(PeriodicCallback):
         batch_idx = ctx["batch_idx"].to(model.device, non_blocking=True)
         unbatch_idx = ctx["unbatch_idx"].to(model.device, non_blocking=True)
         unbatch_select = ctx["unbatch_select"].to(model.device, non_blocking=True)
-        edge_index = ModeWrapper.get_item(mode=self.dataset_mode, item="edge_index", batch=batch)
-        edge_index = edge_index.to(model.device, non_blocking=True)
+        Sol_index = ModeWrapper.get_item(mode=self.dataset_mode, item="Sol_index", batch=batch)
+        Sol_index = Sol_index.to(model.device, non_blocking=True)
         assert x.ndim == 3, "expected data to be of shape (bs * num_points, num_total_timesteps + 1, num_channels)"
         if x.size(1) != self.num_rollout_timesteps + 1:
             x = x[:, :self.num_rollout_timesteps + 1]
@@ -248,7 +248,7 @@ class OfflineRolloutMeshCallback(PeriodicCallback):
                     batch_idx=batch_idx,
                     unbatch_idx=unbatch_idx,
                     unbatch_select=unbatch_select,
-                    edge_index=edge_index,
+                    Sol_index=Sol_index,
                     num_rollout_timesteps=self.num_rollout_timesteps,
                     **self.rollout_kwargs,
                 )
@@ -262,7 +262,7 @@ class OfflineRolloutMeshCallback(PeriodicCallback):
                     batch_idx=batch_idx,
                     unbatch_idx=unbatch_idx,
                     unbatch_select=unbatch_select,
-                    edge_index=edge_index,
+                    Sol_index=Sol_index,
                     num_rollout_timesteps=self.num_rollout_timesteps,
                     **self.rollout_kwargs,
                 )

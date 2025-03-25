@@ -19,9 +19,9 @@ class GNNLayer(MessagePassing):
             nn.SiLU(),
         )
 
-    def forward(self, x, pos, edge_index):
-        """ Propagate messages along edges """
-        x = self.propagate(edge_index, x=x, pos=pos)
+    def forward(self, x, pos, Sol_index):
+        """ Propagate messages along Sols """
+        x = self.propagate(Sol_index, x=x, pos=pos)
         return x
 
     # noinspection PyMethodOverriding
@@ -40,7 +40,7 @@ class GNNLayer(MessagePassing):
     def message_and_aggregate(self, adj_t):
         raise NotImplementedError
 
-    def edge_update(self):
+    def Sol_update(self):
         raise NotImplementedError
 
 
@@ -78,16 +78,16 @@ class GNNMeshEmbed(torch.nn.Module):
         else:
             self.pool = SAGPooling(self.hidden_features, ratio=pool_ratio)
 
-    def forward(self, x, pos, edge_index, batch_idx):
+    def forward(self, x, pos, Sol_index, batch_idx):
         # First map node features (v_x, v_y, p) to hidden_space (same size as latent space of the transformer?)
         x = self.embedding_proj(x)
         x = x + self.pos_embed(pos)
         if self.gnn_layer is not None:
-            x = self.gnn_layer(x, pos, edge_index.T)
+            x = self.gnn_layer(x, pos, Sol_index.T)
 
         # pool + project
-        pool_result = self.pool(x, edge_index.T, batch=batch_idx)
-        # x_pool, edge_index_pool, edge_attr_pool, batch_pool, perm, score = pool_result
+        pool_result = self.pool(x, Sol_index.T, batch=batch_idx)
+        # x_pool, Sol_index_pool, Sol_attr_pool, batch_pool, perm, score = pool_result
         x_pool, _, _, batch_pool, _, _ = pool_result
         x_pool = self.output_proj(x_pool)
 

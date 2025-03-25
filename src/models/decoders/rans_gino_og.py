@@ -16,9 +16,9 @@ class RansGinoOg(SingleModelBase):
             output_dim=output_dim,
         )
 
-    def forward(self, x, query_pos, grid_to_query_edges):
+    def forward(self, x, query_pos, grid_to_query_Sols):
         return self.grid_to_mesh(
             x,
             query_pos=query_pos,
-            grid_to_query_edges=grid_to_query_edges,
+            grid_to_query_Sols=grid_to_query_Sols,
         )

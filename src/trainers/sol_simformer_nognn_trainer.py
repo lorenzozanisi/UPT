@@ -6,13 +6,13 @@ from torch import nn
 from torch_scatter import segment_csr
 
 from callbacks.online_callbacks.update_output_callback import UpdateOutputCallback
-from datasets.collators.edge2d_simformer_nognn_collator import Edge2dSimformerNognnCollator
+from datasets.collators.sol_simformer_nognn_collator import SolSimformerNognnCollator
 from losses import loss_fn_from_kwargs
 from utils.factory import create
 from .base.sgd_trainer import SgdTrainer
 
 
-class Edge2dSimformerNognnTrainer(SgdTrainer):
+class SolSimformerNognnTrainer(SgdTrainer):
     def __init__(self, loss_function, max_batch_size=None, **kwargs):
         # automatic batchsize is not supported with mesh data
         disable_gradient_accumulation = max_batch_size is None
@@ -26,7 +26,7 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
     @cached_property
     def input_shape(self):
         dataset, collator = self.data_container.get_dataset("train", mode="mesh_pos")
-        assert isinstance(collator.collator, Edge2dSimformerNognnCollator)
+        assert isinstance(collator.collator, SolSimformerNognnCollator)
         mesh_pos, _ = dataset[0]
 
         # mesh_pos has shape (num_points, ndim)
@@ -36,8 +36,7 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
     @cached_property
     def output_shape(self):
         dataset, collator = self.data_container.get_dataset("train", mode="target")
-        assert isinstance(collator.collator, Edge2dSimformerNognnCollator )
-        print('getting shape')
+        assert isinstance(collator.collator, SolSimformerNognnCollator )
         output_shape = dataset.getshape_target()
         self.logger.info(f"output_shape: {output_shape}")
         return output_shape
@@ -45,9 +44,11 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
     @cached_property
     def dataset_mode(self):
         # TODO define in yaml
-        other = "target mesh_pos query_pos"
-        all_modes = ' '.join([*self.conditioning_vars_names, other])
-        return all_modes
+        modes = "target mesh_pos query_pos"
+        if self.conditioning_vars_names is not None:
+            all_modes = ' '.join([*self.conditioning_vars_names, modes])
+            return all_modes
+        return modes
 
     @cached_property
     def conditioning_vars_names(self):
@@ -69,16 +70,18 @@ class Edge2dSimformerNognnTrainer(SgdTrainer):
 
         def prepare(self, batch):
             batch, ctx = batch
-            print('preparing', ctx)
-            conditioning = dict(
-                    (var_name,self.to_device
-                        (item=var_name,
-                         batch=batch,
-                        )
-                    ) 
-                    for var_name in self.trainer.conditioning_vars_names
-                )
-            conditioning = torch.stack(list(conditioning.values())).to(self.model.device)
+            if self.trainer.conditioning_vars_names is not None:
+                conditioning = dict(
+                        (var_name,self.to_device
+                            (item=var_name,
+                            batch=batch,
+                            )
+                        ) 
+                        for var_name in self.trainer.conditioning_vars_names
+                    )
+                conditioning = torch.stack(list(conditioning.values())).to(self.model.device)
+            else:
+                conditioning = None
             
             data = dict(
                 # Util variables

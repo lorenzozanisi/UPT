@@ -74,7 +74,7 @@ class LagrangianSimformerTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "x curr_pos curr_pos_full edge_index edge_index_target timestep target_acc target_pos prev_pos prev_acc target_pos_encode perm target_vel"
+        return "x curr_pos curr_pos_full Sol_index Sol_index_target timestep target_acc target_pos prev_pos prev_acc target_pos_encode perm target_vel"
     
     def get_trainer_model(self, model):
         return self.Model(model=model, trainer=self)
@@ -104,8 +104,8 @@ class LagrangianSimformerTrainer(SgdTrainer):
             prev_pos = prev_pos.to(self.model.device, non_blocking=True)
             prev_acc = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="prev_acc", batch=batch)
             prev_acc = prev_acc.to(self.model.device, non_blocking=True)
-            edge_index = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="edge_index", batch=batch)
-            edge_index = edge_index.to(self.model.device, non_blocking=True)
+            Sol_index = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="Sol_index", batch=batch)
+            Sol_index = Sol_index.to(self.model.device, non_blocking=True)
             batch_idx = ctx["batch_idx"].to(self.model.device, non_blocking=True)
             unbatch_idx = ctx["unbatch_idx"].to(self.model.device, non_blocking=True)
             unbatch_select = ctx["unbatch_select"].to(self.model.device, non_blocking=True)
@@ -114,8 +114,8 @@ class LagrangianSimformerTrainer(SgdTrainer):
             target_pos_encode = target_pos_encode.to(self.model.device, non_blocking=True)
             perm = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="perm", batch=batch)
             perm = perm.to(self.model.device, non_blocking=True)
-            edge_index_target = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="edge_index_target", batch=batch)
-            edge_index_target = edge_index_target.to(self.model.device, non_blocking=True)
+            Sol_index_target = ModeWrapper.get_item(mode=self.trainer.dataset_mode, item="Sol_index_target", batch=batch)
+            Sol_index_target = Sol_index_target.to(self.model.device, non_blocking=True)
 
             # Flatten input
             x = einops.rearrange(
@@ -143,11 +143,11 @@ class LagrangianSimformerTrainer(SgdTrainer):
                 curr_pos=curr_pos,
                 curr_pos_decode=curr_pos_full,
                 prev_pos_decode=prev_pos,
-                edge_index=edge_index,
+                Sol_index=Sol_index,
                 batch_idx=batch_idx,
                 unbatch_idx=unbatch_idx,
                 unbatch_select=unbatch_select,
-                edge_index_target = edge_index_target,
+                Sol_index_target = Sol_index_target,
                 target_pos_encode=target_pos_encode,
                 perm_batch=perm,
                 **self.trainer.forward_kwargs,
@@ -192,7 +192,7 @@ class LagrangianSimformerTrainer(SgdTrainer):
 
             infos = {
                 # calculate degree of graph (average number of connections p)
-                "degree/input": len(edge_index) / len(x)
+                "degree/input": len(Sol_index) / len(x)
             }
 
             return dict(total=total_loss, **losses), infos

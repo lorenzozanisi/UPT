@@ -4,7 +4,7 @@ stage_name: stage1
 vars:
   lr: 5.0e-4
   batch_size: 1
-  max_batch_size: 1
+  max_batch_size: 2
   epochs: 5000
 
 
@@ -18,44 +18,44 @@ vars:
 
 datasets:
   train:
-    kind: edge2d
+    kind: edge
     split: train
     #num_input_points_ratio: None #[ 0.8, 1.0 ]
     collators:
-      - kind: edge2d_simformer_nognn_collator
+      - kind: edge_simformer_nognn_collator
   test:
-    kind: edge2d
+    kind: edge
     split: test
     collators:
-      - kind: edge2d_simformer_nognn_collator
+      - kind: edge_simformer_nognn_collator
 
 model:
-  kind: edge2d_simformer_nognn_model
+  kind: edge_simformer_nognn_model
   conditioner:
-    kind: conditioners.edge2d_conditioner
+    kind: conditioners.edge_conditioner
     kwargs: ${select:dim128:${yaml:models/dim}}
     optim: ${vars.optim}
   encoder:
-    kind: encoders.edge2d_perceiver
+    kind: encoders.edge_perceiver
     num_output_tokens: 64
     kwargs: ${select:dim1024:${yaml:models/encoders/perceiver}}
     optim: ${vars.optim}
   latent:
-    kind: latent.transformer_model_edge2d
+    kind: latent.transformer_model_edge
     init_weights: truncnormal
     drop_path_rate: 0.3
     drop_path_decay: false
     kwargs: ${select:dim1024depth12:${yaml:models/latent/transformer}}
     optim: ${vars.optim}
   decoder:
-    kind: decoders.edge2d_perceiver
+    kind: decoders.edge_perceiver
     init_weights: truncnormal
     use_last_norm: true
     kwargs: ${select:dim1024:${yaml:models/decoders/perceiver}}
     optim: ${vars.optim}
 
 trainer:
-  kind: edge2d_simformer_nognn_trainer
+  kind: edge_simformer_nognn_trainer
   precision: bfloat16
   backup_precision: float16
   max_epochs: ${vars.epochs}

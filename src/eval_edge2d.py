@@ -1,6 +1,6 @@
 import wandb
 from models import model_from_kwargs
-from datasets.edge2d import Edge2d
+from datasets.sol import Sol
 from pathlib import Path, PurePath
 from configs.static_config import StaticConfig
 from datasets import dataset_from_kwargs
@@ -57,7 +57,10 @@ def plot(nvertp, rvertp, zvertp, korpg, fig, field, ax):
     return ax
 
 print('Loading config')
-wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/95gurh8r/')
+#wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/95gurh8r/') # no conditioning
+
+#wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/z0ltsm08/') # with conditioning
+wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/6wcf0vv7')
 hp_resolved = PurePath('hp_resolved.yaml')
 cfg_path = wandb_path / hp_resolved
 
@@ -86,7 +89,16 @@ dataset_config_provider = DatasetConfigProvider(
     local_dataset_path=static_config.get_local_dataset_path(),
     data_source_modes=static_config.get_data_source_modes(),
 )
-edge2d = dataset_from_kwargs(
+
+print('trained on',cfg["datasets"]["train"]["conditioning_vars"])
+#exit(0)
+try:
+    conditioning_vars = cfg["datasets"]["train"]["conditioning_vars"]
+except:
+    conditioning_vars = None
+
+print('conditioning on:',conditioning_vars)
+Sol = dataset_from_kwargs(
                 dataset_config_provider=dataset_config_provider,
                 path_provider=path_provider,
                 **cfg["datasets"]["test"],
@@ -112,33 +124,52 @@ for submodel_name, submodel in submodel_dict.items():
     #assert Path(chkpt_path).as_posix(), f'Path {chkpt_path} does not exist'[=]
     print(f'Loading model {chkpt_path}')
     submodel.load_state_dict(torch.load(chkpt_path)["state_dict"])
-    
-idx = 9
-electron_temp = edge2d.getitem_electron_temp_2d(idx=idx)
-korpg, nvertp, zvertp, rvertp, nump = edge2d.getitem_grid_utils(idx=idx)
-input_mesh = edge2d.getitem_mesh_pos(idx=idx)
-query_mesh = edge2d.getitem_query_pos(idx=idx)
+    print(submodel)    
 
-temp_mean = edge2d.mean["electron_temp_2d"]
-temp_std = edge2d.std["electron_temp_2d"]
+conditions = Sol.load_conditions()
+print('evaluating')
+test_idxs = np.random.choice(Sol.conditions.index, 100)
+for idx in test_idxs:    
+    electron_temp = Sol.getitem_target(idx=idx)
+    korpg, nvertp, zvertp, rvertp, nump = Sol.getitem_grid_utils(idx=idx)
+    input_mesh = Sol.getitem_mesh_pos(idx=idx)
+    query_mesh = Sol.getitem_query_pos(idx=idx)
 
-out = model.forward(input_mesh,
-                               torch.unsqueeze(query_mesh, dim=1),
-                               batch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
-                               unbatch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
-                               unbatch_select=[0]
-                               )
-predicted_temp = out["x_hat"]
 
-electron_temp = electron_temp*temp_std+temp_mean
-predicted_temp = predicted_temp*temp_std+temp_mean
-fig, ax = plt.subplots(1,2, figsize=(8,5))
+    if conditioning_vars is not None:
+        conditions = []
+        for key in conditioning_vars:
+            conditions.append(getattr(Sol,f'getitem_{key}')(idx=idx))
+        conditioning = torch.stack(conditions)
+        print(df_conditions.columns)
+        sim_path = df_conditions.loc[idx,'path'].values
+        
+    else:
+        conditions = None
 
-ax[0] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=predicted_temp,  ax=ax[0]  )
-ax[1] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=electron_temp,  ax=ax[1]   )
+    temp_mean = Sol.scaling_stats["electron_temp_2d"]["mean"]
+    temp_std = Sol.scaling_stats["electron_temp_2d"]["std"]
 
-ax[0].set_title('Te predicted')
-ax[1].set_title('Te true')
-fig.tight_layout()
-fig.savefig(f'../plots/overfitted_{idx}.png')
+    out = model.forward(conditioning=conditions,
+                        mesh_pos=input_mesh,
+                        query_pos=torch.unsqueeze(query_mesh, dim=1),
+                        batch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
+                        unbatch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
+                        unbatch_select=[0]
+                        )
+    predicted_temp = out["x_hat"]
+
+    electron_temp = electron_temp*temp_std+temp_mean
+    predicted_temp = predicted_temp*temp_std+temp_mean
+    fig, ax = plt.subplots(1,2, figsize=(8,5))
+
+    ax[0] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=predicted_temp,  ax=ax[0]  )
+    ax[1] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=electron_temp,  ax=ax[1]   )
+
+    ax[0].set_title('Te predicted')
+    ax[1].set_title('Te true')
+    fig.suptitle(sim_path)
+    fig.tight_layout()
+    print('saving')
+    fig.savefig(f'../plots/testset/overfitted_{idx}.png')
 

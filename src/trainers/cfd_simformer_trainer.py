@@ -103,7 +103,7 @@ class CfdSimformerTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "x mesh_pos query_pos mesh_edges geometry2d timestep velocity target"
+        return "x mesh_pos query_pos mesh_Sols geometry2d timestep velocity target"
 
     def get_trainer_model(self, model):
         return self.Model(model=model, trainer=self)
@@ -137,9 +137,9 @@ class CfdSimformerTrainer(SgdTrainer):
                 unbatch_select=ctx["unbatch_select"].to(self.model.device, non_blocking=True),
                 target=self.to_device(item="target", batch=batch, dataset_mode=dataset_mode),
             )
-            mesh_edges = ModeWrapper.get_item(item="mesh_edges", batch=batch, mode=dataset_mode)
-            if mesh_edges is None:
-                # create mesh edges on GPU
+            mesh_Sols = ModeWrapper.get_item(item="mesh_Sols", batch=batch, mode=dataset_mode)
+            if mesh_Sols is None:
+                # create mesh Sols on GPU
                 assert self.trainer.radius_graph_r is not None
                 assert self.trainer.radius_graph_max_num_neighbors is not None
                 if self.trainer.num_supernodes is None:
@@ -150,7 +150,7 @@ class CfdSimformerTrainer(SgdTrainer):
                     # inverted flow direction is required to have sorted dst_indices
                     flow = "target_to_source"
                     supernode_idxs = ctx["supernode_idxs"].to(self.model.device, non_blocking=True)
-                mesh_edges = radius_graph(
+                mesh_Sols = radius_graph(
                     x=mesh_pos,
                     r=self.trainer.radius_graph_r,
                     max_num_neighbors=self.trainer.radius_graph_max_num_neighbors,
@@ -159,15 +159,15 @@ class CfdSimformerTrainer(SgdTrainer):
                     flow=flow,
                 )
                 if supernode_idxs is not None:
-                    is_supernode_edge = torch.isin(mesh_edges[0], supernode_idxs)
-                    mesh_edges = mesh_edges[:, is_supernode_edge]
-                mesh_edges = mesh_edges.T
+                    is_supernode_Sol = torch.isin(mesh_Sols[0], supernode_idxs)
+                    mesh_Sols = mesh_Sols[:, is_supernode_Sol]
+                mesh_Sols = mesh_Sols.T
             else:
                 assert self.trainer.radius_graph_r is None
                 assert self.trainer.radius_graph_max_num_neighbors is None
                 assert self.trainer.num_supernodes is None
-                mesh_edges = mesh_edges.to(self.model.device, non_blocking=True)
-            data["mesh_edges"] = mesh_edges
+                mesh_Sols = mesh_Sols.to(self.model.device, non_blocking=True)
+            data["mesh_Sols"] = mesh_Sols
             return data
 
         def forward(self, batch, reduction="mean"):
@@ -247,7 +247,7 @@ class CfdSimformerTrainer(SgdTrainer):
             # torch.save(data["query_pos"], out / f"{self.counter:04d}_querypos.th")
             # torch.save(data["mesh_pos"], out / f"{self.counter:04d}_meshpos.th")
             # torch.save(data["batch_idx"], out / f"{self.counter:04d}_batchidx.th")
-            # torch.save(data["mesh_edges"], out / f"{self.counter:04d}_meshedges.th")
+            # torch.save(data["mesh_Sols"], out / f"{self.counter:04d}_meshSols.th")
             # torch.save(model_outputs["x_hat"], out / f"{self.counter:04d}_xhat.th")
             # self.counter += 1
 
@@ -337,8 +337,8 @@ class CfdSimformerTrainer(SgdTrainer):
             # calculate degree of graph (average number of connections p)
             # TODO: degree is incorrectly calculated if num_supernodes is handled by dataset and not by collator
             if self.trainer.num_supernodes is None:
-                infos["degree/input"] = len(data["mesh_edges"]) / len(x)
+                infos["degree/input"] = len(data["mesh_Sols"]) / len(x)
             else:
-                infos["degree/input"] = len(data["mesh_edges"]) / (self.trainer.num_supernodes * batch_size)
+                infos["degree/input"] = len(data["mesh_Sols"]) / (self.trainer.num_supernodes * batch_size)
 
             return dict(total=total_loss, **losses), infos

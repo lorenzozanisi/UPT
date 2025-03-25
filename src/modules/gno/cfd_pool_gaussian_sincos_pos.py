@@ -46,16 +46,16 @@ class CfdPoolGaussianSincosPos(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, x, mesh_pos, mesh_edges, batch_idx):
+    def forward(self, x, mesh_pos, mesh_Sols, batch_idx):
         assert x.ndim == 2
         assert mesh_pos.ndim == 2
-        assert mesh_edges.ndim == 2
+        assert mesh_Sols.ndim == 2
 
         # embed mesh
         x = self.input_proj(x) + self.pos_embed(mesh_pos)
 
         # create message input
-        dst_idx, src_idx = mesh_edges.unbind(1)
+        dst_idx, src_idx = mesh_Sols.unbind(1)
         x = torch.concat([x[src_idx], x[dst_idx]], dim=1)
         x = self.message(x)
         # accumulate messages

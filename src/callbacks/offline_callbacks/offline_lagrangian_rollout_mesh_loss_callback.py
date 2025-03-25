@@ -58,8 +58,8 @@ class OfflineLagrangianRolloutMeshLossCallback(PeriodicCallback):
         curr_pos = curr_pos.to(model.device, non_blocking=True)
         target_pos = ModeWrapper.get_item(mode=trainer.dataset_mode, item="target_pos", batch=batch)
         target_pos = target_pos.to(model.device, non_blocking=True)
-        edge_index = ModeWrapper.get_item(mode=trainer.dataset_mode, item="edge_index", batch=batch)
-        edge_index = edge_index.to(model.device, non_blocking=True)
+        Sol_index = ModeWrapper.get_item(mode=trainer.dataset_mode, item="Sol_index", batch=batch)
+        Sol_index = Sol_index.to(model.device, non_blocking=True)
         batch_idx = ctx["batch_idx"].to(model.device, non_blocking=True)
 
         # inputs are the velocities of all timesteps
@@ -77,7 +77,7 @@ class OfflineLagrangianRolloutMeshLossCallback(PeriodicCallback):
             x_hat, all_vels = model.rollout(x=x,
                                             timestep=timestep,
                                             curr_pos=curr_pos,
-                                            edge_index=edge_index,
+                                            Sol_index=Sol_index,
                                             batch_idx=batch_idx,
                                             unbatch_idx=unbatch_idx,
                                             unbatch_select=unbatch_select,

@@ -158,35 +158,35 @@ class ShapenetCar(DatasetBase):
             ctx["grid_pos"] = grid_pos
         return grid_pos
 
-    def getitem_mesh_to_grid_edges(self, idx, ctx=None):
+    def getitem_mesh_to_grid_Sols(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
         # create graph between mesh and regular grid points
-        edges = radius(
+        Sols = radius(
             x=mesh_pos,
             y=grid_pos,
             r=self.radius_graph_r,
             max_num_neighbors=self.radius_graph_max_num_neighbors,
         ).T
-        # edges is (num_points, 2)
-        return edges
+        # Sols is (num_points, 2)
+        return Sols
 
-    def getitem_grid_to_query_edges(self, idx, ctx=None):
+    def getitem_grid_to_query_Sols(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         query_pos = self.getitem_query_pos(idx, ctx=ctx)
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
         # create graph between mesh and regular grid points
-        edges = radius(
+        Sols = radius(
             x=grid_pos,
             y=query_pos,
             r=self.radius_graph_r,
             max_num_neighbors=int(1e10),
         ).T
-        # edges is (num_points, 2)
-        return edges
+        # Sols is (num_points, 2)
+        return Sols
 
     def getitem_mesh_pos(self, idx, ctx=None):
         if ctx is not None and "mesh_pos" in ctx:
@@ -262,13 +262,13 @@ class ShapenetCar(DatasetBase):
         return None
 
     # noinspection PyUnusedLocal
-    def getitem_mesh_edges(self, idx, ctx=None):
+    def getitem_mesh_Sols(self, idx, ctx=None):
         assert self.radius_graph_r is not None
         # load mesh positions
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
         if self.num_supernodes is None:
             # create graph
-            edges = radius_graph(
+            Sols = radius_graph(
                 x=mesh_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
@@ -279,17 +279,17 @@ class ShapenetCar(DatasetBase):
             generator = self._get_generator(idx)
             perm = torch.randperm(len(mesh_pos), generator=generator)[:self.num_supernodes]
             supernodes_pos = mesh_pos[perm]
-            # create edges: this can include self-loop or not depending on how many neighbors are found.
+            # create Sols: this can include self-loop or not depending on how many neighbors are found.
             # if too many neighbors are found, neighbors are selected randomly which can discard the self-loop
-            edges = radius(
+            Sols = radius(
                 x=mesh_pos,
                 y=supernodes_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
             )
             # correct supernode index
-            edges[0] = perm[edges[0]]
-        return edges.T
+            Sols[0] = perm[Sols[0]]
+        return Sols.T
 
     # noinspection PyUnusedLocal
     def getitem_sdf(self, idx, ctx=None):

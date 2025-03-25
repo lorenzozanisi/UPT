@@ -41,16 +41,16 @@ class SAGPoolingFixedNumNodes(torch.nn.Module):
     def forward(
         self,
         x: Tensor,
-        edge_index: Tensor,
-        edge_attr: OptTensor = None,
+        Sol_index: Tensor,
+        Sol_attr: OptTensor = None,
         batch: OptTensor = None,
         attn: OptTensor = None,
     ) -> Tuple[Tensor, Tensor, OptTensor, OptTensor, Tensor, Tensor]:
         r"""
         Args:
             x (torch.Tensor): The node feature matrix.
-            edge_index (torch.Tensor): The edge indices.
-            edge_attr (torch.Tensor, optional): The edge features.
+            Sol_index (torch.Tensor): The Sol indices.
+            Sol_attr (torch.Tensor, optional): The Sol features.
                 (default: :obj:`None`)
             batch (torch.Tensor, optional): The batch vector
                 :math:`\mathbf{b} \in {\{ 0, \ldots, B-1\}}^N`, which assigns
@@ -60,11 +60,11 @@ class SAGPoolingFixedNumNodes(torch.nn.Module):
                 feature matrix :obj:`x`. (default: :obj:`None`)
         """
         if batch is None:
-            batch = edge_index.new_zeros(x.size(0))
+            batch = Sol_index.new_zeros(x.size(0))
 
         attn = x if attn is None else attn
         attn = attn.view(-1, 1) if attn.dim() == 1 else attn
-        attn = self.gnn(attn, edge_index)
+        attn = self.gnn(attn, Sol_index)
 
         select_out = self.select(attn, batch)
 
@@ -75,9 +75,9 @@ class SAGPoolingFixedNumNodes(torch.nn.Module):
         x = x[perm] * score.view(-1, 1)
         x = self.multiplier * x if self.multiplier != 1 else x
 
-        connect_out = self.connect(select_out, edge_index, edge_attr, batch)
+        connect_out = self.connect(select_out, Sol_index, Sol_attr, batch)
 
-        return (x, connect_out.edge_index, connect_out.edge_attr,
+        return (x, connect_out.Sol_index, connect_out.Sol_attr,
                 connect_out.batch, perm, score)
 
     def __repr__(self) -> str:

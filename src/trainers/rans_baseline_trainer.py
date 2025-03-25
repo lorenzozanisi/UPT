@@ -59,7 +59,7 @@ class RansBaselineTrainer(SgdTrainer):
 
     @cached_property
     def dataset_mode(self):
-        return "pressure mesh_pos grid_pos query_pos mesh_to_grid_edges grid_to_query_edges"
+        return "pressure mesh_pos grid_pos query_pos mesh_to_grid_Sols grid_to_query_Sols"
 
     def get_trainer_model(self, model):
         return self.Model(model=model, trainer=self)
@@ -81,8 +81,8 @@ class RansBaselineTrainer(SgdTrainer):
                 mesh_pos=self.to_device(item="mesh_pos", batch=batch),
                 grid_pos=self.to_device(item="grid_pos", batch=batch),
                 query_pos=self.to_device(item="query_pos", batch=batch),
-                mesh_to_grid_edges=self.to_device(item="mesh_to_grid_edges", batch=batch),
-                grid_to_query_edges=self.to_device(item="grid_to_query_edges", batch=batch),
+                mesh_to_grid_Sols=self.to_device(item="mesh_to_grid_Sols", batch=batch),
+                grid_to_query_Sols=self.to_device(item="grid_to_query_Sols", batch=batch),
                 target=self.to_device(item="pressure", batch=batch),
             )
 
@@ -113,7 +113,7 @@ class RansBaselineTrainer(SgdTrainer):
 
             # calculate degree of graph (average number of connections p)
             infos = {
-                "degree/input": len(data["mesh_to_grid_edges"]) / len(data["grid_pos"]),
-                "degree/output": len(data["grid_to_query_edges"]) / len(target),
+                "degree/input": len(data["mesh_to_grid_Sols"]) / len(data["grid_pos"]),
+                "degree/output": len(data["grid_to_query_Sols"]) / len(target),
             }
             return dict(total=loss, x_hat=loss), infos

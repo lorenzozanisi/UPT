@@ -35,7 +35,7 @@ class BaselineMeshEmbed(nn.Module):
         init_xavier_uniform_zero_bias(self.proj)
         self.pos_mlp.apply(init_xavier_uniform_zero_bias)
 
-    def forward(self, x, pos, batch_idx, edge_index):
+    def forward(self, x, pos, batch_idx, Sol_index):
         # get indices of grid nodes
         _, counts = batch_idx.unique(return_counts=True)
         start = (counts.cumsum(dim=0) - counts[0]).repeat_interleave(self.num_grid_points)
@@ -53,7 +53,7 @@ class BaselineMeshEmbed(nn.Module):
 
         # message passing
         for gnn_layer in self.gnn_layers:
-            x = gnn_layer(x, pos, edge_index.T)
+            x = gnn_layer(x, pos, Sol_index.T)
 
         # select grid nodes
         x = x[grid_pos_idx]

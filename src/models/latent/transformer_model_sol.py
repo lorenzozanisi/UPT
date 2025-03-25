@@ -8,7 +8,7 @@ from torch import nn
 from models.base.single_model_base import SingleModelBase
 
 
-class TransformerModelEdge2d(SingleModelBase):
+class TransformerModelSol(SingleModelBase):
     def __init__(
             self,
             dim,
@@ -18,6 +18,7 @@ class TransformerModelEdge2d(SingleModelBase):
             drop_path_decay=True,
             init_weights="xavier_uniform",
             init_last_proj_zero=False,
+            cond_dim=None,
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -67,7 +68,11 @@ class TransformerModelEdge2d(SingleModelBase):
         x = self.input_proj(x)
 
         # apply blocks
-        blk_kwargs = dict(cond=condition) if condition is not None else dict()
+        blk_kwargs = {}
+        if condition is not None:
+            blk_kwargs["cond"] = condition
+            print('decoder: inside conditioning')
+            
         for blk in self.blocks:
             x = blk(x, **blk_kwargs)
 

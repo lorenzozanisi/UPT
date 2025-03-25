@@ -15,9 +15,9 @@ class GNNLayer(MessagePassing):
             nn.SiLU(),
         )
 
-    def forward(self, x, pos, edge_index):
-        """ Propagate messages along edges """
-        x = self.propagate(edge_index, x=x, pos=pos)
+    def forward(self, x, pos, Sol_index):
+        """ Propagate messages along Sols """
+        x = self.propagate(Sol_index, x=x, pos=pos)
         return x
 
     # noinspection PyMethodOverriding
@@ -36,5 +36,5 @@ class GNNLayer(MessagePassing):
     def message_and_aggregate(self, adj_t):
         raise NotImplementedError
 
-    def edge_update(self):
+    def Sol_update(self):
         raise NotImplementedError

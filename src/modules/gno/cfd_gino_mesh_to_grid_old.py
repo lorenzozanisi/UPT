@@ -51,11 +51,11 @@ class CfdGinoMeshToGridOld(nn.Module):
             self.message = nn.Sequential(*layers)
             self.output_dim = hidden_dim[-1]
 
-    def forward(self, x, mesh_pos, grid_pos, mesh_to_grid_edges):
+    def forward(self, x, mesh_pos, grid_pos, mesh_to_grid_Sols):
         assert x.ndim == 2
         assert mesh_pos.ndim == 2
         assert grid_pos.ndim == 2
-        assert mesh_to_grid_edges.ndim == 2
+        assert mesh_to_grid_Sols.ndim == 2
         assert len(grid_pos) % self.num_grid_points == 0
         # embed mesh
         x = torch.concat([self.input_proj(x), self.pos_embed(mesh_pos)], dim=1)
@@ -64,7 +64,7 @@ class CfdGinoMeshToGridOld(nn.Module):
         grid_pos = self.pos_embed(grid_pos)
 
         # create message input
-        grid_idx, mesh_idx = mesh_to_grid_edges.unbind(1)
+        grid_idx, mesh_idx = mesh_to_grid_Sols.unbind(1)
         x = torch.concat([x[mesh_idx], grid_pos[grid_idx]], dim=1)
         x = self.message(x)
         # accumulate messages

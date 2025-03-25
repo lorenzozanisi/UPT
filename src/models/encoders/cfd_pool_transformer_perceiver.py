@@ -88,9 +88,9 @@ class CfdPoolTransformerPerceiver(SingleModelBase):
     def get_model_specific_param_group_modifiers(self):
         return [ExcludeFromWdByNameModifier(name="perceiver.query")]
 
-    def forward(self, x, mesh_pos, mesh_edges, batch_idx, condition=None, static_tokens=None):
+    def forward(self, x, mesh_pos, mesh_Sols, batch_idx, condition=None, static_tokens=None):
         # embed mesh
-        x = self.mesh_embed(x, mesh_pos=mesh_pos, mesh_edges=mesh_edges, batch_idx=batch_idx)
+        x = self.mesh_embed(x, mesh_pos=mesh_pos, mesh_Sols=mesh_Sols, batch_idx=batch_idx)
 
         # project static_tokens to encoder dim
         # static_tokens = self.static_token_proj(static_tokens)

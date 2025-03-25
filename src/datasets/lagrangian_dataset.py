@@ -311,15 +311,15 @@ class LagrangianDataset(DatasetBase):
         input_features = input_features.permute(0,2,1)
         return input_features
     
-    def getitem_edge_index(self, idx, ctx=None, downsample=True):
+    def getitem_Sol_index(self, idx, ctx=None, downsample=True):
         positions, _ = self.getter(idx, ctx, downsample=True)
         input_positions = positions[:self.n_input_timesteps,:,:]
         current_input_position = input_positions[-1,:,:]
         if self.graph_mode == 'knn':
             knn = KNNGraph(k=self.knn_graph_k, loop=True, force_undirected=True)
-            edge_index = knn(Data(pos=current_input_position)).edge_index.T
+            Sol_index = knn(Data(pos=current_input_position)).Sol_index.T
         elif self.graph_mode == 'radius_graph':
-            edge_index = radius_graph(x=current_input_position, 
+            Sol_index = radius_graph(x=current_input_position, 
                                       r=self.radius_graph_r, 
                                       max_num_neighbors=self.radius_graph_max_num_neighbors, 
                                       loop=True).T
@@ -328,27 +328,27 @@ class LagrangianDataset(DatasetBase):
             generator = self._get_generator(idx)
             perm_supernodes = torch.randperm(current_input_position.shape[0], generator=generator)[:self.n_supernodes]
             supernodes_pos = current_input_position[perm_supernodes]
-            # create edges: this can include self-loop or not depending on how many neighbors are found.
+            # create Sols: this can include self-loop or not depending on how many neighbors are found.
             # if too many neighbors are found, neighbors are selected randomly which can discard the self-loop
-            edge_index = radius(
+            Sol_index = radius(
                 x=current_input_position,
                 y=supernodes_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
             )
             # correct supernode index
-            edge_index[0] = perm_supernodes[edge_index[0]]
-            edge_index = edge_index.T
-        return edge_index
+            Sol_index[0] = perm_supernodes[Sol_index[0]]
+            Sol_index = Sol_index.T
+        return Sol_index
     
-    def getitem_edge_index_target(self, idx, ctx=None, downsample=True):
+    def getitem_Sol_index_target(self, idx, ctx=None, downsample=True):
         positions, _ = self.getter(idx, ctx, downsample=True)
         target_position = positions[-1,:,:]
         if self.graph_mode == 'knn':
             knn = KNNGraph(k=self.knn_graph_k, loop=True, force_undirected=True)
-            edge_index = knn(Data(pos=target_position)).edge_index.T
+            Sol_index = knn(Data(pos=target_position)).Sol_index.T
         elif self.graph_mode == 'radius_graph':
-            edge_index = radius_graph(x=target_position, 
+            Sol_index = radius_graph(x=target_position, 
                                       r=self.radius_graph_r, 
                                       max_num_neighbors=self.radius_graph_max_num_neighbors, 
                                       loop=True).T
@@ -357,26 +357,26 @@ class LagrangianDataset(DatasetBase):
             generator = self._get_generator(idx)
             perm_supernodes = torch.randperm(target_position.shape[0], generator=generator)[:self.n_supernodes]
             supernodes_pos = target_position[perm_supernodes]
-            # create edges: this can include self-loop or not depending on how many neighbors are found.
+            # create Sols: this can include self-loop or not depending on how many neighbors are found.
             # if too many neighbors are found, neighbors are selected randomly which can discard the self-loop
-            edge_index = radius(
+            Sol_index = radius(
                 x=target_position,
                 y=supernodes_pos,
                 r=self.radius_graph_r,
                 max_num_neighbors=self.radius_graph_max_num_neighbors,
             )
             # correct supernode index
-            edge_index[0] = perm_supernodes[edge_index[0]]
-            edge_index = edge_index.T
-        return edge_index
+            Sol_index[0] = perm_supernodes[Sol_index[0]]
+            Sol_index = Sol_index.T
+        return Sol_index
     
     # Only used in GNS
-    def getitem_edge_features(self, idx, ctx=None, downsample=True):
-        edge_index = self.getitem_edge_index_target(idx, ctx, downsample=downsample)
+    def getitem_Sol_features(self, idx, ctx=None, downsample=True):
+        Sol_index = self.getitem_Sol_index_target(idx, ctx, downsample=downsample)
         positions, _ = self.getter(idx, ctx, downsample=True)
         target_position = positions[-1,:,:]
-        relative_displacement = target_position[edge_index[:,0]] - target_position[edge_index[:,1]]
-        distance = ((target_position[edge_index[:,0]] - target_position[edge_index[:,1]])).norm(dim=-1)
+        relative_displacement = target_position[Sol_index[:,0]] - target_position[Sol_index[:,1]]
+        distance = ((target_position[Sol_index[:,0]] - target_position[Sol_index[:,1]])).norm(dim=-1)
         return torch.concat([relative_displacement, distance.unsqueeze(dim=-1)], dim=1)
     
     def getitem_target_vel(self, idx, ctx=None):

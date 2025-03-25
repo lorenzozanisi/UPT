@@ -56,34 +56,34 @@ class LagrangianSimformerCollator(KDSingleCollator):
                 flat_pos = torch.concat(pos)
                 collated_batch[pos_item] = flat_pos
 
-        assert ModeWrapper.has_item(mode=dataset_mode, item="edge_index")
-        # flatten edge_index
+        assert ModeWrapper.has_item(mode=dataset_mode, item="Sol_index")
+        # flatten Sol_index
         # batch_size * (num_points, ndim) -> (batch_size * num_points, ndim) where num_points is variable
-        edge_index = []
-        edge_index_offset = 0
+        Sol_index = []
+        Sol_index_offset = 0
         for i in range(len(batch)):
-            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="edge_index") + edge_index_offset
-            edge_index.append(idx)
-            edge_index_offset += lens[i]
-        collated_batch["edge_index"] = torch.concat(edge_index)
+            idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="Sol_index") + Sol_index_offset
+            Sol_index.append(idx)
+            Sol_index_offset += lens[i]
+        collated_batch["Sol_index"] = torch.concat(Sol_index)
 
-        if ModeWrapper.has_item(mode=dataset_mode, item="edge_index_target"):
-            edge_index_target = []
-            edge_index_offset = 0
+        if ModeWrapper.has_item(mode=dataset_mode, item="Sol_index_target"):
+            Sol_index_target = []
+            Sol_index_offset = 0
             for i in range(len(batch)):
-                idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="edge_index_target") + edge_index_offset
-                edge_index_target.append(idx)
-                edge_index_offset += lens[i]
-            collated_batch["edge_index_target"] = torch.concat(edge_index_target)
+                idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="Sol_index_target") + Sol_index_offset
+                Sol_index_target.append(idx)
+                Sol_index_offset += lens[i]
+            collated_batch["Sol_index_target"] = torch.concat(Sol_index_target)
 
-        if ModeWrapper.has_item(mode=dataset_mode, item="edge_features"):
-            edge_features = []
-            edge_index_offset = 0
+        if ModeWrapper.has_item(mode=dataset_mode, item="Sol_features"):
+            Sol_features = []
+            Sol_index_offset = 0
             for i in range(len(batch)):
-                idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="edge_features") + edge_index_offset
-                edge_features.append(idx)
-                edge_index_offset += lens[i]
-            collated_batch["edge_features"] = torch.concat(edge_features)
+                idx = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="Sol_features") + Sol_index_offset
+                Sol_features.append(idx)
+                Sol_index_offset += lens[i]
+            collated_batch["Sol_features"] = torch.concat(Sol_features)
 
         if ModeWrapper.has_item(mode=dataset_mode, item="perm"):
             perm_batch = []

@@ -20,7 +20,7 @@ class DummyMeshEmbed(nn.Module):
     def reset_parameters(self):
         init_xavier_uniform_zero_bias(self.proj)
 
-    def forward(self, x, pos, edge_index, batch_idx):
-        pool_result = self.pool(self.proj(x), edge_index.T, batch=batch_idx)
+    def forward(self, x, pos, Sol_index, batch_idx):
+        pool_result = self.pool(self.proj(x), Sol_index.T, batch=batch_idx)
         x_pool, _, _, batch_pool, _, _ = pool_result
         return x_pool, batch_pool
