@@ -106,12 +106,16 @@ class Sol(DatasetBase):
             self.scaling_stats = pickle.load(f)
 
         # discover uris
-        self.uris = []
-        for name in sorted(os.listdir(self.source_root)):
-            if name!='.' and not (name.endswith('pkl') or name.endswith('csv') or name.endswith('json')):
-                uri = self.source_root / name
-                self.uris.append(uri)
-        logging.info(f'Discovered {len(self.uris)} uris')
+     #   sim_idxs = []
+    #    self.uris = []
+        # for name in os.listdir(self.source_root):
+        #     if name!='.' and not (name.endswith('pkl') or name.endswith('csv') or name.endswith('json')):
+        #   #      sim_idxs.append(name.split("_")[1].split(".")[0])  # extract simulation index from the name                 
+        #         uri = self.source_root / name
+        #         self.uris.append(uri)
+        # logging.info(f'Discovered {len(self.uris)} uris')
+        #sorted_idxs = np.argsort(np.array(sim_idxs, dtype=int))
+        #self.uris = [self.uris[idx] for idx in sorted_idxs]
 
         if self.conditioning_vars_fname is not None:
             self.conditions = self.load_conditions()
@@ -136,27 +140,24 @@ class Sol(DatasetBase):
         else:
             raise NotImplementedError
         
-        if smoke_test:
-            self.uris = [self.uris[0]]
+        self.uris = []
+        # filter uris for indices that satisfy the conditions in the conditions dataframe
+        # uris are now indexed not by the index of the conditions dataframe but by their position in the list
+        if self.conditions is not None:
+            tmp_uris = []
+            for idx in self.conditions.index:
+                uri = self.source_root / f'simulation_{idx}.h5'
+                self.uris.append(uri)
+            self.uris = tmp_uris
         else:
-            # filter uris for indices that satisfy the conditions in the conditions dataframe
-            # uris are now indexed not by the index of the conditions dataframe but by their position in the list
-            if self.conditions is not None:
-                tmp_uris = []
-                for idx in self.conditions.index:
-                    try:
-                        tmp_uris.append(self.uris[idx])
-                    except IndexError:
-                        self.conditions = self.conditions.drop(index=idx)
-                self.uris = tmp_uris
-            else:
-                # --- use all
-                pass
-            #self.uris = [self.uris[idx] for idx in self.conditions.index if os.path.exists(self.uris[idx])]
-        logging.info(f'Retained {len(self.uris)} uris based on file {self.conditioning_vars_fname}')
-        # split into train/test uris
-
-
+            # --- use all
+            for name in os.listdir(self.source_root):
+                if name!='.' and not (name.endswith('pkl') or name.endswith('csv') or name.endswith('json')):
+            #      sim_idxs.append(name.split("_")[1].split(".")[0])  # extract simulation index from the name                 
+                    uri = self.source_root / name
+                    self.uris.append(uri)
+        logging.info(f'Discovered {len(self.uris)} uris')
+        
         self.conditions = self.scale_conditions()
 
     def __len__(self):
@@ -230,7 +231,10 @@ class Sol(DatasetBase):
     def getnames_conditioning_vars(self):
         return self.conditioning_vars
     
-
+    # NOTE: using iloc instead of loc as the index is not the same as the index of the conditions dataframe
+    def getitem_path(self, idx, ctx=None):
+        return self.conditions.iloc[idx]["path"]
+    
     def getitem_connection_length(self, idx, ctx=None): 
         tmp = self.conditions.iloc[idx,"connection_length"]
         tmp = torch.tensor(tmp)
