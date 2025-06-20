@@ -144,11 +144,9 @@ class Sol(DatasetBase):
         # filter uris for indices that satisfy the conditions in the conditions dataframe
         # uris are now indexed not by the index of the conditions dataframe but by their position in the list
         if self.conditions is not None:
-            tmp_uris = []
             for idx in self.conditions.index:
                 uri = self.source_root / f'simulation_{idx}.h5'
                 self.uris.append(uri)
-            self.uris = tmp_uris
         else:
             # --- use all
             for name in os.listdir(self.source_root):
