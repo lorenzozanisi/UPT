@@ -225,6 +225,17 @@ class Sol(DatasetBase):
         tmp -= self.scaling_stats["sh"]["mean"]
         tmp /= self.scaling_stats["sh"]["std"]
         return tmp     
+    
+    def getitem_input_features(self, idx, ctx=None):
+        sh = self.getitem_sh(idx, ctx=ctx)
+        b_toroidal = self.getitem_b_toroidal(idx, ctx=ctx)
+        psin = self.getitem_psin(idx, ctx=ctx)
+        # concatenate features
+        input_features = torch.stack([sh, b_toroidal, psin], dim=-1)
+        return input_features
+    
+    def getshape_input_features(self):
+        return None, 3
         
     def getnames_conditioning_vars(self):
         return self.conditioning_vars
@@ -311,36 +322,36 @@ class Sol(DatasetBase):
         return grid_pos
 
     # --- Only used when using grid-based stuff such as GINO
-    def getitem_mesh_to_grid_Sols(self, idx, ctx=None):
+    def getitem_mesh_to_grid_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
         # create graph between mesh and regular grid points
-        Sols = radius(
+        edges = radius(
             x=mesh_pos,
             y=grid_pos,
             r=self.radius_graph_r,
             max_num_neighbors=self.radius_graph_max_num_neighbors,
         ).T
         # Sols is (num_points, 2)
-        return Sols
+        return edges
     
     # --- Only used when using grid-based stuff such as GINO
-    def getitem_grid_to_query_Sols(self, idx, ctx=None):
+    def getitem_grid_to_query_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         query_pos = self.getitem_query_pos(idx, ctx=ctx)
         grid_pos = self.getitem_grid_pos(idx, ctx=ctx)
         # create graph between mesh and regular grid points
-        Sols = radius(
+        edges = radius(
             x=grid_pos,
             y=query_pos,
             r=self.radius_graph_r,
             max_num_neighbors=int(1e10),
         ).T
         # Sols is (num_points, 2)
-        return Sols
+        return edges
 
     def getitem_mesh_pos(self, idx, ctx=None):
         if ctx is not None and "mesh_pos" in ctx:
@@ -435,7 +446,7 @@ class Sol(DatasetBase):
         return None
 
     # noinspection PyUnusedLocal
-    def getitem_mesh_Sols(self, idx, ctx=None):
+    def getitem_mesh_edges(self, idx, ctx=None):
         assert self.radius_graph_r is not None
         # load mesh positions
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
