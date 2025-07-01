@@ -32,6 +32,15 @@ class SolSimformerNognnTrainer(SgdTrainer):
         # mesh_pos has shape (num_points, ndim)
         assert mesh_pos.ndim == 2 and 2 <= mesh_pos.size(1) <= 3
         return None, mesh_pos.size(1)
+    
+    @cached_property
+    def input_features_shape(self):
+        dataset, collator = self.data_container.get_dataset("train", mode="input_features")
+        assert isinstance(collator.collator, SolSimformerNognnCollator)
+        input_features, _ = dataset[0]
+
+        # input_features has shape (num_points, n_features)
+        return None, input_features.size(1)
 
     @cached_property
     def output_shape(self):
@@ -44,7 +53,7 @@ class SolSimformerNognnTrainer(SgdTrainer):
     @cached_property
     def dataset_mode(self):
         # TODO define in yaml
-        modes = "target mesh_pos query_pos"
+        modes = "target input_features mesh_pos query_pos"
         if self.conditioning_vars_names is not None:
             all_modes = ' '.join([*self.conditioning_vars_names, modes])
             return all_modes
@@ -85,6 +94,7 @@ class SolSimformerNognnTrainer(SgdTrainer):
             
             data = dict(
                 # Util variables
+                input_features=self.to_device(item="input_features", batch=batch),
                 mesh_pos=self.to_device(item="mesh_pos", batch=batch),
                 query_pos=self.to_device(item="query_pos", batch=batch),   
                 batch_idx=ctx["batch_idx"].to(self.model.device, non_blocking=True),

@@ -54,13 +54,13 @@ def plot(nvertp, rvertp, zvertp, korpg, fig, field, ax):
     ax.set_ylim(np.min(total_points[:,1]),np.max(total_points[:,1]))
     ax.set_xlim(np.min(total_points[:,0]),np.max(total_points[:,0]))
 
-    return ax
+    return ax, cbar
 
 print('Loading config')
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/95gurh8r/') # no conditioning
 
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/z0ltsm08/') # with conditioning
-wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/6wcf0vv7')
+wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/zkyqs86z')
 hp_resolved = PurePath('hp_resolved.yaml')
 cfg_path = wandb_path / hp_resolved
 
@@ -126,9 +126,9 @@ for submodel_name, submodel in submodel_dict.items():
     submodel.load_state_dict(torch.load(chkpt_path)["state_dict"])
     print(submodel)    
 
-conditions = Sol.load_conditions()
+df_conditions = Sol.conditions
 print('evaluating')
-test_idxs = np.random.choice(Sol.conditions.index, 100)
+test_idxs = np.random.choice(np.arange(0, len(df_conditions)), 50)
 for idx in test_idxs:    
     electron_temp = Sol.getitem_target(idx=idx)
     korpg, nvertp, zvertp, rvertp, nump = Sol.getitem_grid_utils(idx=idx)
@@ -140,9 +140,9 @@ for idx in test_idxs:
         conditions = []
         for key in conditioning_vars:
             conditions.append(getattr(Sol,f'getitem_{key}')(idx=idx))
-        conditioning = torch.stack(conditions)
-        print(df_conditions.columns)
-        sim_path = df_conditions.loc[idx,'path'].values
+        conditions = torch.stack(conditions).unsqueeze(-1)
+        # NOTE using iloc instad of loc as the index is not the same as that of the dataframe
+        sim_path = getattr(Sol,'getitem_path')(idx=idx) 
         
     else:
         conditions = None
@@ -150,24 +150,32 @@ for idx in test_idxs:
     temp_mean = Sol.scaling_stats["electron_temp_2d"]["mean"]
     temp_std = Sol.scaling_stats["electron_temp_2d"]["std"]
 
-    out = model.forward(conditioning=conditions,
+    out = model.forward(conditioning=conditions,# RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::Half != float
                         mesh_pos=input_mesh,
                         query_pos=torch.unsqueeze(query_mesh, dim=1),
                         batch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
                         unbatch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
                         unbatch_select=[0]
                         )
-    predicted_temp = out["x_hat"]
-
+    predicted_temp = out["x_hat"].squeeze().detach().numpy()
+    electron_temp = electron_temp.detach().numpy()
     electron_temp = electron_temp*temp_std+temp_mean
     predicted_temp = predicted_temp*temp_std+temp_mean
-    fig, ax = plt.subplots(1,2, figsize=(8,5))
+    abserr = np.abs(predicted_temp - electron_temp)
+    relerr = abserr / electron_temp
+    print(f'abs error: {abserr.shape}, rel error: {relerr.shape}, electron temp: {electron_temp.shape}, predicted temp: {predicted_temp.shape}')  
+    fig, ax = plt.subplots(1,3, figsize=(12,5))
 
-    ax[0] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=predicted_temp,  ax=ax[0]  )
-    ax[1] = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=electron_temp,  ax=ax[1]   )
+
+    ax[0], _ = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=predicted_temp,  ax=ax[0]  )
+    ax[1], _ = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=electron_temp,  ax=ax[1]   )
+    ax[2], cbar = plot(nvertp, rvertp, zvertp, korpg, fig=fig, field=abserr,  ax=ax[2]   )
+
+    cbar.set_label('Abs error')
 
     ax[0].set_title('Te predicted')
     ax[1].set_title('Te true')
+    ax[2].set_title('Abs error')
     fig.suptitle(sim_path)
     fig.tight_layout()
     print('saving')

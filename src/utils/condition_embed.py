@@ -56,7 +56,9 @@ class ContinuousConditionEmbed(nn.Module):
         
         cond = cond.view((cond.shape[-1], -1))
         #   assert self.n_cond == cond.shape[-1], f"{self.n_cond} != {cond.shape[-1]}"
-        out = cond.unsqueeze(-1) @ self.omega.unsqueeze(0)
+        #print(cond, self.omega)
+        #exit(0)
+        out = cond.unsqueeze(-1).type(self.omega.dtype) @ self.omega.unsqueeze(0)
         emb = torch.concat([torch.sin(out), torch.cos(out)], dim=-1)
         emb = rearrange(emb, "... ncond cdim -> ... (ncond cdim)")
         

@@ -74,6 +74,10 @@ def model_from_kwargs(kind=None, path_provider=None, data_container=None, **kwar
     ctor_kwargs.pop("input_shape", None)
     ctor_kwargs.pop("output_shape", None)
     ctor_kwargs.pop("optim_ctor", None)
+    try:
+        ctor_kwargs.pop('input_features_shape',None)
+    except KeyError:
+        logging.warning(f"input_features_shape not found in kwargs, this is probably fine unless you are training a SOL model")
 
     return instantiate(
         module_names=[

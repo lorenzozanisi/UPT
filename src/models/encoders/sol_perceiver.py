@@ -24,20 +24,24 @@ class SolPerceiver(SingleModelBase):
             **kwargs,
     ):
         super().__init__(**kwargs)
-        self.dim = dim
+        self.dim = dim # dimension of the embedding space
         self.num_attn_heads = num_attn_heads
         self.num_output_tokens = num_output_tokens
         self.add_type_token = add_type_token
 
         # set ndim
-        _, ndim = self.input_shape
+        _, ndim = self.input_shape # dimension of the mesh (ie 2 or 3)
+        _, n_features = self.input_features_shape # number of features per node
         self.static_ctx["ndim"] = ndim
 
         # pos_embed
         self.pos_embed = ContinuousSincosEmbed(dim=dim, ndim=ndim)
-
+        # linear projection of input features
+        # TODO: ndim is _not_ the dimension of the input features, but the number of dimensions of the mesh (e.g. 2D or 3D).
+        # TODO (continued): this should be set in the config somewhere, hardcoded here for now.
+        self.input_proj = nn.Linear(n_features, dim, bias=False)
         # perceiver
-        #self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
+        self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
         if "condition_dim" in self.static_ctx:
             block_ctor = partial(
                     DitPerceiverPoolingBlock,
@@ -86,8 +90,10 @@ class SolPerceiver(SingleModelBase):
             modifiers += [ExcludeFromWdByNameModifier(name="type_token")]
         return modifiers
 
-    def forward(self, mesh_pos, batch_idx, condition=None, mesh_edges=None):
+    def forward(self, input_features, mesh_pos, batch_idx, condition=None, mesh_edges=None):
         x = self.pos_embed(mesh_pos)
+        input_features = self.input_proj(input_features)
+        x = x + input_features
         x, mask = to_dense_batch(x, batch_idx)
         if torch.all(mask):
             mask = None

@@ -21,7 +21,6 @@ class SolSimformerNognnModel(CompositeModelBase):
             data_container=self.data_container,
         )
 
-
         # conditioner
         if conditioner is not None:
             self.conditioner = create(
@@ -39,6 +38,8 @@ class SolSimformerNognnModel(CompositeModelBase):
             encoder,
             model_from_kwargs,
             input_shape=self.input_shape,
+            # !!!!!! TODO
+            input_features_shape=self.input_features_shape, #TODO define somewhere before!
             **common_kwargs,
         )
         # latent
@@ -79,7 +80,7 @@ class SolSimformerNognnModel(CompositeModelBase):
             )
 
     # noinspection PyMethodOverriding
-    def forward(self, conditioning, mesh_pos, query_pos, batch_idx, unbatch_idx, unbatch_select):
+    def forward(self, conditioning, mesh_pos, query_pos, input_features, batch_idx, unbatch_idx, unbatch_select):
         outputs = {}
 
         # encode data
@@ -88,7 +89,7 @@ class SolSimformerNognnModel(CompositeModelBase):
         else:
             condition = None
 
-        encoded = self.encoder(mesh_pos=mesh_pos, batch_idx=batch_idx, condition=condition)
+        encoded = self.encoder(input_features=input_features, mesh_pos=mesh_pos, batch_idx=batch_idx, condition=condition)
 
         # propagate
         propagated = self.latent(encoded, condition=condition) 

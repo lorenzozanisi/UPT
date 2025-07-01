@@ -158,7 +158,7 @@ class ShapenetCar(DatasetBase):
             ctx["grid_pos"] = grid_pos
         return grid_pos
 
-    def getitem_mesh_to_grid_Sols(self, idx, ctx=None):
+    def getitem_mesh_to_grid_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         mesh_pos = self.getitem_mesh_pos(idx, ctx=ctx)
@@ -173,7 +173,7 @@ class ShapenetCar(DatasetBase):
         # Sols is (num_points, 2)
         return Sols
 
-    def getitem_grid_to_query_Sols(self, idx, ctx=None):
+    def getitem_grid_to_query_edges(self, idx, ctx=None):
         assert self.grid_resolution is not None
         assert self.radius_graph_r is not None
         query_pos = self.getitem_query_pos(idx, ctx=ctx)
