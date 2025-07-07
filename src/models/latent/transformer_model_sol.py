@@ -71,7 +71,6 @@ class TransformerModelSol(SingleModelBase):
         blk_kwargs = {}
         if condition is not None:
             blk_kwargs["cond"] = condition
-            print('decoder: inside conditioning')
             
         for blk in self.blocks:
             x = blk(x, **blk_kwargs)

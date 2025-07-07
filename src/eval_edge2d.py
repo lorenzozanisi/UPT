@@ -60,9 +60,15 @@ print('Loading config')
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/95gurh8r/') # no conditioning
 
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/z0ltsm08/') # with conditioning
-wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/zkyqs86z')
+model_name = PurePath('7lkn7nv8')
 hp_resolved = PurePath('hp_resolved.yaml')
-cfg_path = wandb_path / hp_resolved
+wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/')
+model_path = wandb_path / model_name
+
+cfg_path = model_path / hp_resolved
+plots_path = Path('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/plots/') / model_name
+plots_path.mkdir(parents=True, exist_ok=True)
+
 
 with open(cfg_path, 'r') as f:
     cfg = yaml.safe_load(f)
@@ -108,13 +114,14 @@ model = model_from_kwargs(
     **cfg["model"],
     input_shape=(None,2), #trainer.input_shape,
     output_shape=(None,1),
+    input_features_shape=(None,3),
     path_provider=path_provider,
  ) 
 
 
 print('loading from checkpoint')
 submodel_dict =  model.submodels
-checkpoints_dir = wandb_path / "checkpoints"
+checkpoints_dir = model_path / "checkpoints"
 model_kind = cfg["model"]["kind"]
 
 for submodel_name, submodel in submodel_dict.items():
@@ -134,6 +141,7 @@ for idx in test_idxs:
     korpg, nvertp, zvertp, rvertp, nump = Sol.getitem_grid_utils(idx=idx)
     input_mesh = Sol.getitem_mesh_pos(idx=idx)
     query_mesh = Sol.getitem_query_pos(idx=idx)
+    input_features = Sol.getitem_input_features(idx=idx)
 
 
     if conditioning_vars is not None:
@@ -150,7 +158,8 @@ for idx in test_idxs:
     temp_mean = Sol.scaling_stats["electron_temp_2d"]["mean"]
     temp_std = Sol.scaling_stats["electron_temp_2d"]["std"]
 
-    out = model.forward(conditioning=conditions,# RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::Half != float
+    out = model.forward(conditioning=conditions,
+                        input_features=input_features,
                         mesh_pos=input_mesh,
                         query_pos=torch.unsqueeze(query_mesh, dim=1),
                         batch_idx=torch.zeros(input_mesh.size(0), dtype=torch.long), 
@@ -163,7 +172,8 @@ for idx in test_idxs:
     predicted_temp = predicted_temp*temp_std+temp_mean
     abserr = np.abs(predicted_temp - electron_temp)
     relerr = abserr / electron_temp
-    print(f'abs error: {abserr.shape}, rel error: {relerr.shape}, electron temp: {electron_temp.shape}, predicted temp: {predicted_temp.shape}')  
+    print(f'abs error: {np.mean(abserr)}, rel error: {np.mean(relerr*100)}')  
+    
     fig, ax = plt.subplots(1,3, figsize=(12,5))
 
 
@@ -179,5 +189,5 @@ for idx in test_idxs:
     fig.suptitle(sim_path)
     fig.tight_layout()
     print('saving')
-    fig.savefig(f'../plots/testset/overfitted_{idx}.png')
+    fig.savefig(plots_path /f'overfitted_{idx}.png')
 

@@ -18,16 +18,20 @@ class SolSimformerNognnCollator(KDSingleCollator):
         # sparse mesh_pos: batch_size * (num_points, ndim) -> (batch_size * num_points, ndim)
         mesh_pos = []
         mesh_lens = []
+        input_features = []
         for i in range(len(batch)):
             item = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="mesh_pos")
             mesh_lens.append(len(item))
             mesh_pos.append(item)
+            item = ModeWrapper.get_item(mode=dataset_mode, batch=batch[i], item="input_features")
+            input_features.append(item)
+
         collated_batch["mesh_pos"] = torch.concat(mesh_pos)
+        collated_batch["input_features"] = torch.concat(input_features)
 
         # dense_query_pos: batch_size * (num_points, ndim) -> (batch_size, max_num_points, ndim)
         # sparse target (decoder output is converted to sparse format before loss)
         target = [ModeWrapper.get_item(mode=dataset_mode, batch=sample, item="target") for sample in batch]
-        #connection_length = [ModeWrapper.get_item(mode=dataset_mode, batch=sample, item="connection_length") for sample in batch]
         # predict all positions -> pad
         query_pos = []
         query_lens = []
@@ -36,11 +40,13 @@ class SolSimformerNognnCollator(KDSingleCollator):
             assert len(item) == len(target[i])
             query_lens.append(len(item))
             query_pos.append(item)
+
         # TODO: is padding needed for connection length? Is padding needed at all?    
         collated_batch["query_pos"] = pad_sequence(query_pos, batch_first=True)
         #collated_batch["connection_length"] = pad_sequence(torch.repeat(connection_length, torch.size(query_pos)), batch_first=True)
         collated_batch["target"] = torch.concat(target).unsqueeze(1)
-        # create batch_idx tensor
+        #collated_batch["input_features"] = torch.concat(target).unsqueeze(1)         
+        #  create batch_idx tensor
         batch_size = len(mesh_lens)
         batch_idx = torch.empty(sum(mesh_lens), dtype=torch.long)
         start = 0
@@ -91,6 +97,7 @@ class SolSimformerNognnCollator(KDSingleCollator):
             if item in collated_batch:
                 result.append(collated_batch[item])
             else:
+
                 result.append(
                     default_collate([
                         ModeWrapper.get_item(mode=dataset_mode, batch=sample, item=item)

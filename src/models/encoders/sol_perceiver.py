@@ -39,7 +39,11 @@ class SolPerceiver(SingleModelBase):
         # linear projection of input features
         # TODO: ndim is _not_ the dimension of the input features, but the number of dimensions of the mesh (e.g. 2D or 3D).
         # TODO (continued): this should be set in the config somewhere, hardcoded here for now.
-        self.input_proj = nn.Linear(n_features, dim, bias=False)
+        self.input_proj = nn.Linear(n_features, dim, bias=False) #Mlp(in_dim=n_features, hidden_dim=dim * 4, init_weights=init_weights) #
+        #self.inpu_proj = nn.Sequential(
+        #    nn.Linear(n_features, dim, bias=False),
+        #    nn.ReLu(),
+        #    nn.Linear(dim, dim, bias=False),
         # perceiver
         self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
         if "condition_dim" in self.static_ctx:
@@ -94,7 +98,9 @@ class SolPerceiver(SingleModelBase):
         x = self.pos_embed(mesh_pos)
         input_features = self.input_proj(input_features)
         x = x + input_features
+        # print(f"SolPerceiver: x shape: {x.shape}")
         x, mask = to_dense_batch(x, batch_idx)
+        # print(f"SolPerceiver: x shape: {x.shape}, mask shape: {mask.shape if mask is not None else None}")
         if torch.all(mask):
             mask = None
         else:

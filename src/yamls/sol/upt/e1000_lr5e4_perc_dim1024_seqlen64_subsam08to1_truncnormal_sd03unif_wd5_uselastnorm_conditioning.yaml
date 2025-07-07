@@ -35,7 +35,7 @@ datasets:
     kind: sol
     split: test
     conditioning_vars: ${vars.conditioning_vars}
-    conditioning_vars_fname: ILW_deuterium_only.pkl
+    conditioning_vars_fname: ILW_deuterium_coconut=false.pkl
     smoke_test: ${vars.smoke_test}
     collators:
       - kind: sol_simformer_nognn_collator
@@ -43,7 +43,6 @@ datasets:
 model:
 
   kind: sol_simformer_nognn_model
-  cond_dim: ${vars.cond_dim}
   conditioner:
     kind: conditioners.sol_conditioner
     kwargs:

@@ -15,6 +15,7 @@ class ModelBase(torch.nn.Module):
             input_shape=None,
             name=None,
             output_shape=None,
+            input_features_shape=None,
             ctor_kwargs=None,
             update_counter=None,
             path_provider: PathProvider = None,
@@ -27,6 +28,7 @@ class ModelBase(torch.nn.Module):
         self.logger = logging.getLogger(type(self).__name__)
         self.input_shape = input_shape
         self.output_shape = output_shape
+        self.input_features_shape = input_features_shape
         self.update_counter = update_counter
         self.path_provider = path_provider
         self.data_container = data_container
