@@ -170,7 +170,9 @@ class Sol(DatasetBase):
     def scale_conditions(self):
         metadata = set(self.conditions.columns) - set(self.conditioning_vars)
         df_meta = self.conditions[list(metadata)]
+        df_meta = df_meta.dropna()
         conditions = self.conditions[self.conditioning_vars]
+        conditions = conditions.dropna()
         index = conditions.index
         mean = conditions.values.mean(axis=0)
         scaled = conditions.values-mean
@@ -193,7 +195,7 @@ class Sol(DatasetBase):
         #     tmp = h5file[f"targets2d"]["electron_temp_2d"][:]
         return None, 1
 
-     def getshape_input_features(self):
+    def getshape_input_features(self):
         return None, 3
         
     def getnames_conditioning_vars(self):
@@ -201,7 +203,7 @@ class Sol(DatasetBase):
     
     # NOTE: using iloc instead of loc as the index is not the same as the index of the conditions dataframe
     def getitem_path(self, idx, ctx=None):
-        return self.conditions.iloc[idx]["path"]
+        return self.conditions.loc[idx]["path"]
         
     # ========== EDGE2D outputs - JETTO inputs ========= 
     def getitem_target(self, idx, ctx=None):
@@ -214,68 +216,58 @@ class Sol(DatasetBase):
         return tmp     
 
     def getitem_nisep(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"nisep"]
+        tmp = self.conditions.loc[idx,"nisep"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_tisep(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"tisep"]
+        tmp = self.conditions.loc[idx,"tisep"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_tesep(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"tesep"]
-        tmp = torch.tensor(tmp)
-        return tmp
-
-    def getitem_nisep(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"nisep"]
-        tmp = torch.tensor(tmp)
-        return tmp
-
-    def getitem_atomic_neutral_energy_sep(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"atomic_neutral_energy_sep"]
+        tmp = self.conditions.loc[idx,"tesep"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_neutral_flux_to_mp(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"neutral_flux_to_mp"]
+        tmp = self.conditions.loc[idx,"neutral_flux_to_mp"]
+        tmp = torch.tensor(tmp)
+        return tmp
+    
+    def getitem_atomic_neutral_energy_sep(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx,"atomic_neutral_energy_sep"]
         tmp = torch.tensor(tmp)
         return tmp            
     
     # ========= EDGE2D outputs - core-edge optimisation =========
-    def getitem_neutral_flux_to_mp(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"neutral_flux_to_mp"]
-        tmp = torch.tensor(tmp)
-        return tmp            
-
     def getitem_nesep(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"nesep"]
+        tmp = self.conditions.loc[idx,"nesep"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_peak_target_outer_power_density(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"peak_target_outer_power_density"]
+        tmp = self.conditions.loc[idx,"peak_target_outer_power_density"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_peak_target_outer_power_temperature(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"peak_target_outer_power_temperature"]
+        tmp = self.conditions.loc[idx,"peak_target_outer_power_temperature"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_tungsten_radiation(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"tungsten_radiation"]
+        tmp = self.conditions.loc[idx,"tungsten_radiation"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_nitrogen_radiation(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"nitrogen_radiation"]
+        tmp = self.conditions.loc[idx,"nitrogen_radiation"]
         tmp = torch.tensor(tmp)
         return tmp
     
-    def getitem_heat_flux_strik_point(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"heat_flux_strik_point"]
+    def getitem_heat_flux_strike_point(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx,"heat_flux_strike_point"]
         tmp = torch.tensor(tmp)
         return tmp
 
@@ -311,112 +303,101 @@ class Sol(DatasetBase):
         # concatenate features
         input_features = torch.stack([sh, b_toroidal, psin], dim=-1)
         return input_features
-        
-    def getitem_connection_length(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx,"connection_length"]
-        tmp = torch.tensor(tmp)
-        return tmp
 
-    def getitem_deuterium_puff_values(self, idx, ctx=None):
-        tmp = self.conditions.iloc[idx]["deuterium_puff_values"]
+    def getitem_particle_flux_total_s1(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx]["particle_flux_total_s1"]
         tmp = torch.tensor(tmp)
-        return tmp        
+        return tmp    
 
     def getitem_psep_elec(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["psep_elec"]
+        tmp = self.conditions.loc[idx]["psep_elec"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_psep_ions(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["psep_ions"]
+        tmp = self.conditions.loc[idx]["psep_ions"]
         tmp = torch.tensor(tmp)
         return tmp
     
-    def getitem_particle_flux_total_s1(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["particle_flux_total_s1"]
-        tmp = torch.tensor(tmp)
-        return tmp    
-    
     def getitem_d_perp(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["d_perp"]
+        tmp = self.conditions.loc[idx]["d_perp"]
         tmp = torch.tensor(tmp)
         return tmp    
 
     def getitem_chii(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["chii"]
+        tmp = self.conditions.loc[idx]["chii"]
         tmp = torch.tensor(tmp)
         return tmp    
 
     def getitem_chie(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["chie"]
+        tmp = self.conditions.loc[idx]["chie"]
         tmp = torch.tensor(tmp)
         return tmp    
-
-    def getitem_chie(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["chie"]
+    
+    def getitem_deuterium_puff_values(self, idx, ctx=None):
+        tmp = self.conditions.loc[idx]["deuterium_puff_values"]
         tmp = torch.tensor(tmp)
-        return tmp    
-
+        return tmp        
     def getitem_tritium_puff_values(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["tritium_puff_values"]
+        tmp = self.conditions.loc[idx]["tritium_puff_values"]
         tmp = torch.tensor(tmp)
         return tmp    
 
     def getitem_nitrogen_puff_values(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["tritium_puff_values"]
+        tmp = self.conditions.loc[idx]["tritium_puff_values"]
         tmp = torch.tensor(tmp)
         return tmp      
 
     def getitem_tungsten_impurity_values(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["tungsten_impurity_values"]
+        tmp = self.conditions.loc[idx]["tungsten_impurity_values"]
         tmp = torch.tensor(tmp)
         return tmp    
 
     def getitem_tritium_puff_values(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["tritium_puff_values"]
+        tmp = self.conditions.loc[idx]["tritium_puff_values"]
         tmp = torch.tensor(tmp)
         return tmp    
 
-    def getitem_R0(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["R0"]
+    def getitem_connection_length(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx,"connection_length"]
         tmp = torch.tensor(tmp)
-        return tmp    
+        return tmp
 
-    def getitem_B0(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["B0"]
+    def getitem_flux_expansion(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx]["flux_expansion"]
         tmp = torch.tensor(tmp)
-        return tmp    
+        return tmp                        
     
     def getitem_pumped_neutral_flux(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["pumped_neutral_flux"]
+        tmp = self.conditions.loc[idx]["pumped_neutral_flux"]
         tmp = torch.tensor(tmp)
         return tmp
 
     def getitem_inner_avg_albedo(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["inner_avg_albedo"]
+        tmp = self.conditions.loc[idx]["inner_avg_albedo"]
         tmp = torch.tensor(tmp)
         return tmp            
 
     def getitem_outer_avg_albedo(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["outer_avg_albedo"]
+        tmp = self.conditions.loc[idx]["outer_avg_albedo"]
         tmp = torch.tensor(tmp)
         return tmp            
-    
-    def getitem_particle_flux_omp(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["particle_flux_omp"]
-        tmp = torch.tensor(tmp)
-        return tmp            
-
-    def getitem_flux_expansion(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["flux_expansion"]
-        tmp = torch.tensor(tmp)
-        return tmp                        
 
     def getitem_strike_point_poloidal_angle(self, idx, ctx=None): 
-        tmp = self.conditions.iloc[idx]["strike_point_poloidal_angle"]
+        tmp = self.conditions.loc[idx]["strike_point_poloidal_angle"]
         tmp = torch.tensor(tmp)
         return tmp                        
-    
+
+    def getitem_R0(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx]["R0"]
+        tmp = torch.tensor(tmp)
+        return tmp    
+
+    def getitem_B0(self, idx, ctx=None): 
+        tmp = self.conditions.loc[idx]["B0"]
+        tmp = torch.tensor(tmp)
+        return tmp    
+
     def getitem_grid_utils(self, idx):
         with h5py.File(self.uris[idx], "r") as h5file:
             korpg = h5file["plotting_utils"]["korpg"][:]

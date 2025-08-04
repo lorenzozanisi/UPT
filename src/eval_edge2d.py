@@ -21,7 +21,21 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import sys
 from scipy.interpolate import griddata
 
+
+
+
 def plot(nvertp, rvertp, zvertp, korpg, fig, field, ax):
+    """
+    Plot the field on the mesh defined by nvertp, rvertp, zvertp, korpg.
+    These can be found in the 'plotting_utils' group of each h5 file. 
+    nvertp: number of vertices per polygon
+    rvertp: radial coordinates of vertices
+    zvertp: vertical coordinates of vertices
+    korpg: polygon indices
+    field: field values to plot, found in the 'targets_2d' group of each h5 file.
+    fig: matplotlib figure object
+    ax: matplotlib axes object
+    """
     nump = len(nvertp)
     mesh=[]
     total_points = []
