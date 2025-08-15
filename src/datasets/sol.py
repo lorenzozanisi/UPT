@@ -165,6 +165,8 @@ class Sol(DatasetBase):
     # TODO: to implement class for loading, scaling and unscaling conditions
     def load_conditions(self):
         conditions = pd.read_pickle(self.source_root / self.conditioning_vars_fname)
+        conditions.loc[:,'inner_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1
+        conditions.loc[:,'outer_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1        
         return conditions
                            
     def scale_conditions(self):

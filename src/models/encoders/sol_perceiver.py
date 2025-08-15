@@ -37,8 +37,6 @@ class SolPerceiver(SingleModelBase):
         # pos_embed
         self.pos_embed = ContinuousSincosEmbed(dim=dim, ndim=ndim)
         # linear projection of input features
-        # TODO: ndim is _not_ the dimension of the input features, but the number of dimensions of the mesh (e.g. 2D or 3D).
-        # TODO (continued): this should be set in the config somewhere, hardcoded here for now.
         self.input_proj = nn.Linear(n_features, dim, bias=False) #Mlp(in_dim=n_features, hidden_dim=dim * 4, init_weights=init_weights) #
         #self.inpu_proj = nn.Sequential(
         #    nn.Linear(n_features, dim, bias=False),
@@ -50,7 +48,7 @@ class SolPerceiver(SingleModelBase):
             block_ctor = partial(
                     DitPerceiverPoolingBlock,
                     perceiver_kwargs=dict(
-                    cond_dim=self.static_ctx["condition_dim"],# this should be the same as the dim of the condition - not sure how to do that
+                    cond_dim=self.static_ctx["condition_dim"],
                     init_weights=init_weights,
                 ),
             )
