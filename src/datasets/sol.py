@@ -297,7 +297,21 @@ class Sol(DatasetBase):
         tmp -= self.scaling_stats["sh"]["mean"]
         tmp /= self.scaling_stats["sh"]["std"]
         return tmp     
-    
+
+    def getitem_transport(self,idx,ctx=None):
+        with h5py.File(self.uris[idx], 'r') as h5file:
+            tmp1 = torch.from_numpy(np.array(list(h5filef["inputs2d"]["chi_i"])))
+            tmp2 = torch.from_numpy(np.array(list(h5filef["inputs2d"]["chi_e"])))
+            tmp3 = torch.from_numpy(np.array(list(h5filef["inputs2d"]["d_perp"])))
+        tmp1 -= self.scaling_stats["chi_i"]["mean"]
+        tmp1 /= self.scaling_stats["chi_i"]["std"]
+        tmp2 -= self.scaling_stats["chi_e"]["mean"]
+        tmp2 /= self.scaling_stats["chi_e"]["std"]
+        tmp3 -= self.scaling_stats["d_perp"]["mean"]
+        tmp3 /= self.scaling_stats["d_perp"]["std"]
+        return torch.stack([tmp1,tmp2,tmp3], dim=-1)
+
+
     def getitem_input_features(self, idx, ctx=None):
         sh = self.getitem_sh(idx, ctx=ctx)
         b_toroidal = self.getitem_b_toroidal(idx, ctx=ctx)
