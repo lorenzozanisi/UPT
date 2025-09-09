@@ -203,6 +203,11 @@ class Sol(DatasetBase):
     def getnames_conditioning_vars(self):
         return self.conditioning_vars
     
+    def scale2d(self, tmp, name):
+        tmp -= self.scaling_stats[name]["mean"]
+        tmp /= self.scaling_stats[name]["std"]
+        return tmp
+    
     # NOTE: using iloc instead of loc as the index is not the same as the index of the conditions dataframe
     def getitem_path(self, idx, ctx=None):
         return self.conditions.loc[idx]["path"]
@@ -213,8 +218,7 @@ class Sol(DatasetBase):
         with h5py.File(self.uris[idx], 'r') as h5file:
             tmp = np.array(list(h5file[f"targets2d"]["electron_temp_2d"]))
         tmp = torch.from_numpy(tmp)
-        tmp -= self.scaling_stats["electron_temp_2d"]["mean"]
-        tmp /= self.scaling_stats["electron_temp_2d"]["std"]
+        tmp = self.scale2d(tmp,"electron_temp_2d")
         return tmp     
 
     def getitem_nisep(self, idx, ctx=None): 
@@ -278,40 +282,34 @@ class Sol(DatasetBase):
         with h5py.File(self.uris[idx], 'r') as h5file:
             tmp = np.array(list(h5file[f"inputs2d"]["psin"]))
         tmp = torch.from_numpy(tmp)
-        tmp -= self.scaling_stats["psin"]["mean"]
-        tmp /= self.scaling_stats["psin"]["std"]
+        tmp = self.scale2d(tmp, "psin")                
         return tmp     
 
     def getitem_b_toroidal(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
             tmp = np.array(list(h5file[f"inputs2d"]["b_toroidal"]))
         tmp = torch.from_numpy(tmp)
-        tmp -= self.scaling_stats["b_toroidal"]["mean"]
-        tmp /= self.scaling_stats["b_toroidal"]["std"]
+        tmp = self.scale2d(tmp, "b_toroidal")
         return tmp     
     
     def getitem_sh(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
             tmp = np.array(list(h5file[f"inputs2d"]["sh"]))
         tmp = torch.from_numpy(tmp)
-        tmp -= self.scaling_stats["sh"]["mean"]
-        tmp /= self.scaling_stats["sh"]["std"]
+        tmp = self.scale2d(tmp, "sh")
         return tmp     
 
-    def getitem_transport(self,idx,ctx=None):
+    def getitem_transport_coefficients(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp1 = torch.from_numpy(np.array(list(h5filef["inputs2d"]["chi_i"])))
-            tmp2 = torch.from_numpy(np.array(list(h5filef["inputs2d"]["chi_e"])))
-            tmp3 = torch.from_numpy(np.array(list(h5filef["inputs2d"]["d_perp"])))
-        tmp1 -= self.scaling_stats["chi_i"]["mean"]
-        tmp1 /= self.scaling_stats["chi_i"]["std"]
-        tmp2 -= self.scaling_stats["chi_e"]["mean"]
-        tmp2 /= self.scaling_stats["chi_e"]["std"]
-        tmp3 -= self.scaling_stats["d_perp"]["mean"]
-        tmp3 /= self.scaling_stats["d_perp"]["std"]
-        return torch.stack([tmp1,tmp2,tmp3], dim=-1)
-
-
+            d_perp = torch.from_numpy(np.array(list(h5file[f"inputs2d"]["d_perp"])))
+            chi_i = torch.from_numpy(np.array(list(h5file[f"inputs2d"]["chi_i"])))
+            chi_e = torch.from_numpy(np.array(list(h5file[f"inputs2d"]["chi_e"])))
+        d_perp = self.scale2d(d_perp, "d_perp")
+        chi_i = self.scale2d(chi_i, "chi_i")
+        tmp = self.scale2d(tmp, "chi_e")
+        tmp = torch.stack([d_perp,chi_i,chi_e], dim=-1)
+        return tmp             
+    
     def getitem_input_features(self, idx, ctx=None):
         sh = self.getitem_sh(idx, ctx=ctx)
         b_toroidal = self.getitem_b_toroidal(idx, ctx=ctx)
