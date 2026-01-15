@@ -63,16 +63,16 @@ class CfdGnnPool(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, x, mesh_pos, mesh_Sols, batch_idx):
+    def forward(self, x, mesh_pos, mesh_edges, batch_idx):
         # embed + GNN
         x = self.proj(x)
         x = x + self.pos_embed(mesh_pos)
         for gnn_layer in self.gnn_layers:
-            x = gnn_layer(mesh_Sols=mesh_Sols.T, x=x, pos=mesh_pos)
+            x = gnn_layer(mesh_edges=mesh_edges.T, x=x, pos=mesh_pos)
 
         # pool
-        pool_result = self.pool(x, mesh_Sols.T, batch=batch_idx)
-        # x_pool, Sol_index_pool, Sol_attr_pool, batch_pool, perm, score = pool_result
+        pool_result = self.pool(x, mesh_edges.T, batch=batch_idx)
+        # x_pool, edge_index_pool, edge_attr_pool, batch_pool, perm, score = pool_result
         x_pool, _, _, batch_pool, _, _ = pool_result
 
         return x_pool, batch_pool
@@ -83,8 +83,8 @@ class CfdGnnPool(nn.Module):
             self.message_net = message_net
             self.update_net = update_net
 
-        def forward(self, mesh_Sols, x, pos):
-            return self.propagate(Sol_index=mesh_Sols, x=x, pos=pos)
+        def forward(self, mesh_edges, x, pos):
+            return self.propagate(edge_index=mesh_edges, x=x, pos=pos)
 
         # noinspection PyMethodOverriding
         def message(self, x_i, x_j, pos_i, pos_j):
@@ -99,6 +99,7 @@ class CfdGnnPool(nn.Module):
 
         def message_and_aggregate(self, adj_t):
             raise NotImplementedError
+255370
 
-        def Sol_update(self):
+        def edge_update(self):
             raise NotImplementedError

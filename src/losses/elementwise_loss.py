@@ -14,7 +14,7 @@ class ElementwiseLoss(nn.Module):
         self.loss_function = create(loss_function, basic_loss_fn_from_kwargs)
 
     def forward(self, prediction, target, mask=None, reduction="mean"):
-        assert prediction.shape == target.shape
+        assert prediction.shape == target.shape, f"Prediction shape {prediction.shape} is different than target shape {target.shape}"
         # unreduced loss
         loss = self.loss_function(prediction, target, reduction="none")
         # apply mask

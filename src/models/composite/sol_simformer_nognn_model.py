@@ -38,7 +38,6 @@ class SolSimformerNognnModel(CompositeModelBase):
             encoder,
             model_from_kwargs,
             input_shape=self.input_shape,
-            # !!!!!! TODO
             input_features_shape=self.input_features_shape, #TODO define somewhere before!
             **common_kwargs,
         )

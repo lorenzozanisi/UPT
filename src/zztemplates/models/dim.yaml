@@ -58,11 +58,20 @@ dim256:
 dim384:
   dim: 384
 
+dim400:
+  dim: 400
+
+dim420:
+  dim: 420
+
 dim512:
   dim: 512
 
 dim768:
   dim: 768
+
+dim840:
+  dim: 840
 
 dim1024:
   dim: 1024

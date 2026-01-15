@@ -29,9 +29,9 @@ class RansGinoGridToMesh(nn.Module):
             nn.Linear(hidden_dim, output_dim),
         )
 
-    def forward(self, x, query_pos, grid_to_query_Sols):
+    def forward(self, x, query_pos, grid_to_query_edges):
         assert query_pos.ndim == 2
-        assert grid_to_query_Sols.ndim == 2
+        assert grid_to_query_edges.ndim == 2
 
         # convert to sparse tensor
         x = einops.rearrange(x, "batch_size seqlen dim -> (batch_size seqlen) dim")
@@ -41,7 +41,7 @@ class RansGinoGridToMesh(nn.Module):
         query_pos = self.pos_embed(query_pos)
 
         # create message input
-        query_idx, grid_idx = grid_to_query_Sols.unbind(1)
+        query_idx, grid_idx = grid_to_query_edges.unbind(1)
         x = torch.concat([x[grid_idx], query_pos[query_idx]], dim=1)
         x = self.message(x)
         # accumulate messages

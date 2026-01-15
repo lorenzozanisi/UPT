@@ -40,6 +40,21 @@ dim384depth12:
   num_attn_heads: 6
   depth: 12
 
+dim420depth12:
+  dim: 420
+  num_attn_heads: 6
+  depth: 12
+
+dim420depth6:
+  dim: 420
+  num_attn_heads: 6
+  depth: 6
+
+dim420depth2:
+  dim: 420
+  num_attn_heads: 6
+  depth: 2
+
 dim512depth12:
   dim: 384
   num_attn_heads: 8
@@ -63,6 +78,11 @@ dim768depth12:
 dim768:
   dim: 768
   num_attn_heads: 12
+
+dim840depth12:
+  dim: 840
+  num_attn_heads: 12
+  depth: 12
 
 # 85.6M
 base:

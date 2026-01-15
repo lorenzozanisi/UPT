@@ -8,10 +8,12 @@ import json
 import pickle as pkl
 
 def process(file,h5_group,var_name):
+
     with h5py.File(file,'r') as f:
         tmp = np.array(list(f[h5_group][var_name]))
     if "density" in var_name:
         tmp /= 1e19
+
     return tmp
 
 def main():
@@ -29,12 +31,25 @@ def main():
                     'neutral_molecule_temperature_2d']
     input_names = ['b_toroidal',
                 'psin',
-                'sh']
+                'sh',
+                'd_perp',
+                'chi_i',
+                'chi_e']
     coords = ['rmesh2d',
             'zmesh2d']
-            
-    files = glob.glob('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/preprocessed/*.h5')        
+
+    with open('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data/edge2d/files_ok.pkl','rb') as f:
+        files = pkl.load(f)
+#    files = glob.glob('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/preprocessed/*.h5')        
     stats = {}
+
+    for input_name in input_names:
+        partial_process = partial(process, h5_group='inputs2d', var_name=input_name)
+        with Pool(52) as pool:
+            var = pool.map(partial_process, files)
+        var = np.hstack(var)
+        stats[input_name] = {'mean':var.mean(), 'std':var.std()}
+    
     for var_name in target_names:
         print(var_name)
         partial_process = partial(process, h5_group='targets2d', var_name=var_name)
@@ -43,13 +58,6 @@ def main():
         var = np.hstack(var)
         stats[var_name] = {'mean':var.mean(), 'std':var.std()}
 
-    for input_name in input_names:
-        print(input_name)
-        partial_process = partial(process, h5_group='inputs2d', var_name=input_name)
-        with Pool(52) as pool:
-            var = pool.map(partial_process, files)
-        var = np.hstack(var)
-        stats[input_name] = {'mean':var.mean(), 'std':var.std()}
 
     for coord_name in coords:
         print(coord_name)
@@ -58,7 +66,9 @@ def main():
             var = pool.map(partial_process, files)
         var = np.hstack(var)
         stats[coord_name] = {'max':var.max(), 'min':var.min()}
-        print(stats[coord_name])
+       
+        print(stats[coord_name]) 
+    
         
 
     with open('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/preprocessed/stats.pkl', 'wb') as f:

@@ -14,13 +14,13 @@ tiny:
   dim: 192
   num_attn_heads: 3
 
+dim420:
+  dim: 420
+  num_attn_heads: 6
+
 dim384:
   dim: 384
   num_attn_heads: 6
-
-dim512:
-  dim: 512
-  num_attn_heads: 8
 
 small:
   dim: 384
@@ -28,6 +28,10 @@ small:
 
 dim768:
   dim: 768
+  num_attn_heads: 12
+
+dim840:
+  dim: 840
   num_attn_heads: 12
 
 base:

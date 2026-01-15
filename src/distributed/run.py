@@ -184,6 +184,7 @@ def _parse_devices(accelerator, devices, mig_devices=None):
 def _check_single_device_visible():
     assert "CUDA_VISIBLE_DEVICES" in os.environ
     visible_device_count = torch.cuda.device_count()
+    print('visible devices count: ',visible_device_count)
     assert visible_device_count <= 1, os.environ
 
 

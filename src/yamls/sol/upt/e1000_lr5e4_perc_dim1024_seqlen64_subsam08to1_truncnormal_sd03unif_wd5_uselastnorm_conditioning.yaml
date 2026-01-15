@@ -7,11 +7,13 @@ vars:
   max_batch_size: 32
   epochs: 5000
   conditioning_vars:
-    - psep
+    - psep_ions
+    - psep_elec
     - pumped_neutral_flux
-    - particle_flux_omp
+    - particle_flux_total_s1
     - deuterium_puff_values
-  cond_dim: 4
+  conditioning_vars_fname: data_deuterium_fuel_no_other.pkl
+  cond_dim: 5
   smoke_test: False
   optim:
     kind: adamw
@@ -27,7 +29,7 @@ datasets:
     split: train
     #num_input_points_ratio: None #[ 0.8, 1.0 ]
     conditioning_vars: ${vars.conditioning_vars}
-    conditioning_vars_fname: ILW_deuterium_only.pkl
+    conditioning_vars_fname: ${vars.conditioning_vars_fname}
     smoke_test: ${vars.smoke_test} 
     collators:
       - kind: sol_simformer_nognn_collator
@@ -35,7 +37,7 @@ datasets:
     kind: sol
     split: test
     conditioning_vars: ${vars.conditioning_vars}
-    conditioning_vars_fname: ILW_deuterium_coconut=false.pkl
+    conditioning_vars_fname: ${vars.conditioning_vars_fname}
     smoke_test: ${vars.smoke_test}
     collators:
       - kind: sol_simformer_nognn_collator

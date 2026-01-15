@@ -94,24 +94,9 @@ class TransformerModelSol(SingleModelBase):
             
         print('x shape is', x.shape)
         for blk in self.blocks:
-            x = blk(x, **blk_kwargs)
+            x = blk(x, attn_mask=mask, **blk_kwargs)
             print('x shape is', x.shape)
 
-       # exit(0)
-        
-
-        # remove static tokens
-        # if static_tokens is not None:
-        #     num_static_tokens = static_tokens.size(1)
-        #     x = x[:, num_static_tokens:]
-        x = self.norm(x)
-        x = self.output_proj(x)
-        print('x shape before einops', x.shape)
-        # dense tensor (batch_size, max_num_points, dim) -> sparse tensor (batch_size * num_points, dim)
-        x = einops.rearrange(x, "batch_size max_num_points dim -> (batch_size max_num_points) dim")
-        print('x shape after einops', x.shape)
-        # unbatched = unbatch(x, batch=batch_idx)
-        # x = torch.concat([unbatched[i] for i in unbatch_select])
-        #print(f"predict shape", x.shape, "output shape", self.output_shape)
-        #exit(0)
         return x
+
+        # return x

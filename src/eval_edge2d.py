@@ -74,7 +74,8 @@ print('Loading config')
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/95gurh8r/') # no conditioning
 
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/z0ltsm08/') # with conditioning
-model_name = PurePath('7lkn7nv8')
+#model_name = PurePath('7lkn7nv8')
+model_name = PurePath('zmpaoss6') # with conditioning, all vars and xfield transport, new data
 hp_resolved = PurePath('hp_resolved.yaml')
 wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/')
 model_path = wandb_path / model_name
@@ -203,5 +204,5 @@ for idx in test_idxs:
     fig.suptitle(sim_path)
     fig.tight_layout()
     print('saving')
-    fig.savefig(plots_path /f'overfitted_{idx}.png')
+    fig.savefig(plots_path /f'{idx}.png')
 
