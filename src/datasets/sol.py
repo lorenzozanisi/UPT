@@ -172,23 +172,28 @@ class Sol(DatasetBase):
     # TODO: to implement class for loading, scaling and unscaling conditions
     def load_conditions(self):
         conditions = pd.read_pickle(self.source_root / self.conditioning_vars_fname)
-        conditions.loc[:,'inner_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1
-        conditions.loc[:,'outer_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1        
+        try:
+            conditions.loc[:,'inner_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1
+            conditions.loc[:,'outer_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1        
+        except:
+            pass
         return conditions
                            
     def scale_conditions(self):
-        metadata = set(self.conditions.columns) - set(self.conditioning_vars)
-        df_meta = self.conditions[list(metadata)]
-        df_meta = df_meta.dropna()
-        conditions = self.conditions[self.conditioning_vars].astype(float)
+        df = self.conditions[self.conditioning_vars]
+        float_conditions = df.select_dtype(exclude='integer').astype(np.float32)
+        integer_conditions = df.select_dtypes(include='integer').astype(np.int8)
+        other_keys = set(self.conditions.columns) - set(float_conditions.columns) - set(integer_conditions.columns)
+        metadata = self.conditions[list(other_keys)]
 
-        conditions = conditions.dropna()
-        index = conditions.index
-        mean = conditions.values.mean(axis=0)
-        scaled = conditions.values-mean
+        float_conditions = float_conditions.dropna()
+        index = float_conditions.index
+        mean = float_conditions.values.mean(axis=0)
+        scaled = float_conditions.values-mean
         std = scaled.std(axis=0)
-        conditions = pd.DataFrame(scaled / std, columns=self.conditioning_vars, dtype=np.float16, index=index)
-        conditions = pd.merge(df_meta, conditions, left_index=True, right_index=True)
+        float_conditions = pd.DataFrame(scaled / std, columns=float_conditions.columns, dtype=np.float16, index=index)
+        conditions = pd.concat([float_conditions, integer_conditions], axis=1)
+        conditions = pd.merge(metadata, conditions, left_index=True, right_index=True)
         return conditions
         
     # def getitem_target(self, idx, ctx=None):
@@ -356,12 +361,13 @@ class Sol(DatasetBase):
 
     def getitem_puff_location_encoded(self, idx, ctx=None):
         tmp = self.conditions.loc[self.idx_of_sim_idx[idx]]["puff_location_encoded"]
-        tmp = torch.tensor(tmp)
+        tmp = torch.tensor(tmp, dtype=torch.int8)
         return tmp    
 
     def getitem_nitrogen_puff_location_encoded(self, idx, ctx=None):
         tmp = self.conditions.loc[self.idx_of_sim_idx[idx]]["nitrogen_puff_location_encoded"]
         tmp = torch.tensor(tmp)
+        tmp = torch.tensor(tmp, dtype=torch.int8)
         return tmp    
 
 
