@@ -80,15 +80,25 @@ class SolSimformerNognnTrainer(SgdTrainer):
         def prepare(self, batch):
             batch, ctx = batch
             if self.trainer.conditioning_vars_names is not None:
-                conditioning = dict(
+                conditioning_float = dict(
                         (var_name,self.to_device
                             (item=var_name,
                             batch=batch,
                             )
                         ) 
-                        for var_name in self.trainer.conditioning_vars_names
+                        for var_name in self.trainer.conditioning_vars_names if batch.dtype != torch.int8
                     )
-                conditioning = torch.stack(list(conditioning.values())).to(self.model.device)
+                conditioning_float = torch.stack(list(conditioning_float.values())).to(self.model.device)  
+                conditioning_int = dict(
+                        (var_name,self.to_device
+                            (item=var_name,
+                            batch=batch,
+                            )
+                        ) 
+                        for var_name in self.trainer.conditioning_vars_names if batch.dtype == torch.int8
+                    )
+                conditioning_int = torch.stack(list(conditioning_int.values())).to(self.model.device)  
+                conditioning = {'float': conditioning_float, 'int':conditioning_int}
             else:
                 conditioning = None
             
@@ -110,6 +120,7 @@ class SolSimformerNognnTrainer(SgdTrainer):
             # TODO: target definition should be in yaml file
             target = data.pop("target")
 
+            print('Conditioninsg in trainer forward: ', conditioning)
             # forward pass
             model_outputs = self.model(conditioning,**data)
             loss = self.trainer.loss_function(
