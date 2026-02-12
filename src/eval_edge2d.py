@@ -75,7 +75,8 @@ print('Loading config')
 
 #wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/z0ltsm08/') # with conditioning
 #model_name = PurePath('7lkn7nv8')
-model_name = PurePath('zmpaoss6') # with conditioning, all vars and xfield transport, new data
+#model_name = PurePath('zmpaoss6') # with conditioning, all vars and xfield transport, new data
+model_name = PurePath('g4wefv0p') # nolatent transformer 70M params
 hp_resolved = PurePath('hp_resolved.yaml')
 wandb_path = PurePath('/rds/project/iris_vol2/rds-ukaea-ap001/ir-zani1/UPT/UPT/checkpoints/stage1/')
 model_path = wandb_path / model_name
@@ -124,7 +125,8 @@ Sol = dataset_from_kwargs(
                 path_provider=path_provider,
                 **cfg["datasets"]["test"],
             )
-print('preparing model')
+
+
 model = model_from_kwargs(
     **cfg["model"],
     input_shape=(None,2), #trainer.input_shape,
@@ -160,10 +162,17 @@ for idx in test_idxs:
 
 
     if conditioning_vars is not None:
-        conditions = []
+        conditions_float = []
+        conditions_integers = []
         for key in conditioning_vars:
-            conditions.append(getattr(Sol,f'getitem_{key}')(idx=idx))
-        conditions = torch.stack(conditions).unsqueeze(-1)
+            item = getattr(Sol,f'getitem_{key}')(idx=idx)
+            if item.dtype == torch.int8:
+                conditions_integers.append(item)
+            else:
+                conditions_float.append(item)
+        conditions_float = torch.stack(conditions_float).unsqueeze(-1)
+        conditions_integers = torch.stack(conditions_integers).unsqueeze(-1)
+        conditions = {'float': conditions_float, 'int': conditions_integers}
         # NOTE using iloc instad of loc as the index is not the same as that of the dataframe
         sim_path = getattr(Sol,'getitem_path')(idx=idx) 
         

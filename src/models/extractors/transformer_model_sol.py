@@ -7,7 +7,7 @@ from torch import nn
 from torch_geometric.utils import unbatch
 import einops
 from torch_geometric.utils import to_dense_batch
-
+import logging
 
 from models.base.single_model_base import SingleModelBase
 
@@ -78,9 +78,9 @@ class TransformerModelSol(SingleModelBase):
         # concat static tokens
         # if static_tokens is not None:
         #     x = torch.cat([static_tokens, x], dim=1)
+        logging.info(f"In model 1: x shape: {x.shape}")
 
         x, mask = to_dense_batch(x, batch_idx)
-        print(f"SolPerceiver: x shape: {x.shape}, mask shape: {mask.shape if mask is not None else None}")
         if torch.all(mask):
             mask = None
         else:
@@ -91,8 +91,11 @@ class TransformerModelSol(SingleModelBase):
         blk_kwargs = {}
         if condition is not None:
             blk_kwargs["cond"] = condition
+        logging.info(f"In model: x shape: {x.shape}, mask shape: {mask.shape if mask is not None else None}")
             
-        print('x shape is', x.shape)
+        logging.info(f'x shape before blocks is {x.shape}')
+        logging.info(f'cond shape before blocks {condition.shape}')
+
         for blk in self.blocks:
             x = blk(x, attn_mask=mask, **blk_kwargs)
             print('x shape is', x.shape)

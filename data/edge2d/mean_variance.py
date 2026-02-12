@@ -6,6 +6,7 @@ from functools import partial
 from multiprocessing import Pool
 import json
 import pickle as pkl
+import pandas as pd
 
 def process(file,h5_group,var_name):
 
@@ -38,9 +39,11 @@ def main():
     coords = ['rmesh2d',
             'zmesh2d']
 
-    with open('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data/edge2d/files_ok.pkl','rb') as f:
-        files = pkl.load(f)
-#    files = glob.glob('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/preprocessed/*.h5')        
+    # with open('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data/edge2d/files_ok.pkl','rb') as f:
+    #     files = pkl.load(f)
+    #files = glob.glob('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/mastu/preprocessed/*.h5')        
+    df = pd.read_pickle('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/mastu/preprocessed/matched_full_dataframe.pkl')
+    files = df['h5path'].values
     stats = {}
 
     for input_name in input_names:
@@ -71,7 +74,7 @@ def main():
     
         
 
-    with open('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/preprocessed/stats.pkl', 'wb') as f:
+    with open('/home/ir-zani1/rds/rds-ukaea-ap001/ir-zani1/UPT/UPT/data_store/sol/mastu/preprocessed/stats.pkl', 'wb') as f:
         pkl.dump(stats, f)
 
 

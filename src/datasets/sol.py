@@ -181,8 +181,9 @@ class Sol(DatasetBase):
                            
     def scale_conditions(self):
         df = self.conditions[self.conditioning_vars]
-        float_conditions = df.select_dtype(exclude='integer').astype(np.float32)
-        integer_conditions = df.select_dtypes(include='integer').astype(np.int8)
+        integer_conditions = df.select_dtypes(include='integer').astype(np.int16)
+        float_conditions = df.select_dtypes(exclude='integer').astype(np.float32)
+        
         other_keys = set(self.conditions.columns) - set(float_conditions.columns) - set(integer_conditions.columns)
         metadata = self.conditions[list(other_keys)]
 
@@ -214,7 +215,7 @@ class Sol(DatasetBase):
         return None, 3
         
     def getnames_conditioning_vars(self):
-        return self.conditioning_vars
+        return np.array(self.conditioning_vars)
     
     def scale2d(self, tmp, name):
         tmp -= self.scaling_stats[name]["mean"]
@@ -234,18 +235,18 @@ class Sol(DatasetBase):
         tmp = self.scale2d(tmp,"electron_temp_2d")
         return tmp     
 
-    def getitem_nisep(self, idx, ctx=None): 
-        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"nisep"]
+    def getitem_ni_sep_lfs(self, idx, ctx=None): 
+        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"ni_sep_lfs"]
         tmp = torch.tensor(tmp)
         return tmp
 
-    def getitem_tisep(self, idx, ctx=None): 
-        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"tisep"]
+    def getitem_ti_sep_lfs(self, idx, ctx=None): 
+        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"ti_sep_lfs"]
         tmp = torch.tensor(tmp)
         return tmp
 
-    def getitem_tesep(self, idx, ctx=None): 
-        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"tesep"]
+    def getitem_te_sep_lfs(self, idx, ctx=None): 
+        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"te_sep_lfs"]
         tmp = torch.tensor(tmp)
         return tmp
 
@@ -260,8 +261,8 @@ class Sol(DatasetBase):
         return tmp            
     
     # ========= EDGE2D outputs - core-edge optimisation =========
-    def getitem_nesep(self, idx, ctx=None): 
-        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"nesep"]
+    def getitem_ne_sep_lfs(self, idx, ctx=None): 
+        tmp = self.conditions.loc[self.idx_of_sim_idx[idx],"ne_sep_lfs"]
         tmp = torch.tensor(tmp)
         return tmp
 

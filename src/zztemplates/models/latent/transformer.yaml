@@ -20,6 +20,11 @@ dim256:
   dim: 256
   num_attn_heads: 4
 
+dim288depth2:
+  dim: 288
+  num_attn_heads: 4
+  depth: 2
+
 dim256depth12:
   dim: 256
   num_attn_heads: 4
@@ -34,6 +39,11 @@ tiny: # vit_tiny_patch16_224
 dim384:
   dim: 384
   num_attn_heads: 6
+
+dim384depth2:
+  dim: 384
+  num_attn_heads: 3
+  depth: 2
 
 dim384depth12:
   dim: 384
@@ -52,7 +62,7 @@ dim420depth6:
 
 dim420depth2:
   dim: 420
-  num_attn_heads: 6
+  num_attn_heads: 3
   depth: 2
 
 dim512depth12:

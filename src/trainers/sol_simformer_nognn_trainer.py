@@ -1,5 +1,5 @@
 from functools import cached_property
-
+import logging
 import torch
 from kappadata.wrappers import ModeWrapper
 from torch import nn
@@ -79,25 +79,27 @@ class SolSimformerNognnTrainer(SgdTrainer):
 
         def prepare(self, batch):
             batch, ctx = batch
+            #for b in batch:
+            #     logging.info(f'batch is {b}')
+            #     try:
+            #         logging.info(f'batch dtype {b.dtype}')
+            #     except Exception as e:
+            #         logging.info(f'Couldnt find dtype for batch with error {e}')
+            # exit(0)
             if self.trainer.conditioning_vars_names is not None:
-                conditioning_float = dict(
+                conditioning = dict(
                         (var_name,self.to_device
                             (item=var_name,
                             batch=batch,
                             )
                         ) 
-                        for var_name in self.trainer.conditioning_vars_names if batch.dtype != torch.int8
+                        for var_name in self.trainer.conditioning_vars_names
                     )
-                conditioning_float = torch.stack(list(conditioning_float.values())).to(self.model.device)  
-                conditioning_int = dict(
-                        (var_name,self.to_device
-                            (item=var_name,
-                            batch=batch,
-                            )
-                        ) 
-                        for var_name in self.trainer.conditioning_vars_names if batch.dtype == torch.int8
-                    )
-                conditioning_int = torch.stack(list(conditioning_int.values())).to(self.model.device)  
+                logging.info(f'conditoining dictionary: {conditioning}')
+                conditioning_float = {k:v for k,v in conditioning.items() if v.dtype!= torch.int8}
+                conditioning_int = {k:v for k,v in conditioning.items() if v.dtype== torch.int8}
+                conditioning_float = torch.stack(list(conditioning_float.values())) #.to(self.model.device)  
+                conditioning_int = torch.stack(list(conditioning_int.values())) #.to(self.model.device)  
                 conditioning = {'float': conditioning_float, 'int':conditioning_int}
             else:
                 conditioning = None
@@ -122,7 +124,7 @@ class SolSimformerNognnTrainer(SgdTrainer):
 
             print('Conditioninsg in trainer forward: ', conditioning)
             # forward pass
-            model_outputs = self.model(conditioning,**data)
+            model_outputs = self.model(conditioning=conditioning,**data)
             loss = self.trainer.loss_function(
                 prediction=model_outputs["x_hat"],
                 target=target,

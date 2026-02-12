@@ -3,9 +3,9 @@ from kappamodules.layers import ContinuousSincosEmbed
 import torch
 from utils.condition_embed import ContinuousConditionEmbed
 from models.base.single_model_base import SingleModelBase
+import logging
 
-
-class SolConditioner(SingleModelBase):
+class SolConditionerMixedInteger(SingleModelBase):
     def __init__(self, dim, cond_dim=None, init_weights="xavier_uniform", **kwargs):
         super().__init__(**kwargs)
         #self.conditioning_vars = self.data_container.get_dataset().getnames_conditioning_vars()
@@ -13,12 +13,16 @@ class SolConditioner(SingleModelBase):
         self.n_cond = cond_dim # or dim * 4
         self.init_weights = init_weights
         self.static_ctx["condition_dim"] = self.n_cond 
+        logging.info(f'n_cond is {self.n_cond}')
 
-        #cond_dim = len(self.conditioning_vars)
-        self.condition_embed = ContinuousConditionEmbed(dim=dim, n_cond=cond_dim)
-        self.embed_integers = torch.nn.Embedding(3, dim)  
-        
 
+        self.condition_embed = ContinuousConditionEmbed(dim=dim, n_cond=self.n_cond-1)
+        out_embed_dim = self.condition_embed.mlp[-2].out_features
+        self.embed_integer = torch.nn.Embedding(4, out_embed_dim)  
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(out_embed_dim*2, out_embed_dim),
+            torch.nn.SiLU(),
+        )        
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -44,8 +48,13 @@ class SolConditioner(SingleModelBase):
         # for cond_var in self.conditioning_vars:
         #     condition = getattr(self,cond_var)(conditioning[cond_var])
         #     embedded += getattr(self,cond_var+"_mlp")(condition)
-        conditioning_int = self.embed_puff_location(conditioning['int']) # to be expanded to more than one integer
+        conditioning_int = self.embed_integer(conditioning['int'].long()) # to be expanded to more than one integer
         conditioning_float = self.condition_embed(conditioning['float'])
-        embedded = conditioning_float + conditioning_int
-        
-        return embedded
+        print('conditionign shape ', conditioning_int.shape, conditioning_float.shape)
+        embedded = torch.cat((conditioning_float, conditioning_int.squeeze(dim=0)), dim=-1)
+        print('embedded concat', embedded.shape)
+        embedded = self.mlp(embedded)
+
+        #embedded = conditioning_float + conditioning_int
+        logging.info(f'embedded dimension {embedded.shape}')
+        return embedded#+conditioning_int
