@@ -12,8 +12,7 @@ class SolConditionerMixedInteger(SingleModelBase):
         self.dim = dim
         self.n_cond = cond_dim # or dim * 4
         self.init_weights = init_weights
-        self.static_ctx["condition_dim"] = self.n_cond 
-        logging.info(f'n_cond is {self.n_cond}')
+        self.static_ctx["condition_dim"] = self.n_cond
 
 
         self.condition_embed = ContinuousConditionEmbed(dim=dim, n_cond=self.n_cond-1)
@@ -50,11 +49,8 @@ class SolConditionerMixedInteger(SingleModelBase):
         #     embedded += getattr(self,cond_var+"_mlp")(condition)
         conditioning_int = self.embed_integer(conditioning['int'].long()) # to be expanded to more than one integer
         conditioning_float = self.condition_embed(conditioning['float'])
-        print('conditionign shape ', conditioning_int.shape, conditioning_float.shape)
         embedded = torch.cat((conditioning_float, conditioning_int.squeeze(dim=0)), dim=-1)
-        print('embedded concat', embedded.shape)
         embedded = self.mlp(embedded)
 
         #embedded = conditioning_float + conditioning_int
-        logging.info(f'embedded dimension {embedded.shape}')
         return embedded#+conditioning_int

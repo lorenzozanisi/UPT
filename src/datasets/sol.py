@@ -34,6 +34,8 @@ class Sol(DatasetBase):
             seed=None,
             conditioning_vars=None,
             conditioning_vars_fname=None,
+            target_name="electron_temp_2d",
+            scaling_strategy='standardscaler',
             smoke_test=False,
             **kwargs,
     ):
@@ -54,6 +56,8 @@ class Sol(DatasetBase):
             seed (int): Seed for the random number generator.
             conditioning_vars (List[str]): List of conditioning variables. Passed in yaml file
             conditioning_vars_fname (str): Name of the pickle file containing the conditioning variables. Passed in the yaml file.
+            target_name (str): Name of the target variable to predict. Passed in the yaml file.
+            scaling_strategy (str): Strategy for scaling the input and target variables. Passed in the yaml file (e.g. "standardscaler", "minmaxscaler", etc.). --- IGNORE for now, to be implemented in the future ---
             **kwargs: Additional arguments.
         """
         super().__init__(**kwargs)
@@ -64,6 +68,8 @@ class Sol(DatasetBase):
         self.radius_graph_max_num_neighbors = radius_graph_max_num_neighbors or int(1e10)
         self.num_supernodes = num_supernodes
         self.seed = seed
+        self.target_name = target_name
+        self.scaling_strategy = scaling_strategy
         if num_input_points_ratio is None:
             self.num_input_points_ratio = None
         else:
@@ -172,6 +178,11 @@ class Sol(DatasetBase):
     # TODO: to implement class for loading, scaling and unscaling conditions
     def load_conditions(self):
         conditions = pd.read_pickle(self.source_root / self.conditioning_vars_fname)
+        conditions = conditions.query('odd_simulation==0')
+        conditions['deuterium_puff_values'] = np.log10(conditions['deuterium_puff_values'].astype(np.float64))
+        conditions['psep_elec'] = np.log10(conditions['psep_elec'].astype(np.float64))
+        conditions['psep_ions'] = np.log10(conditions['psep_ions'].astype(np.float64))
+        
         try:
             conditions.loc[:,'inner_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1
             conditions.loc[:,'outer_avg_albedo'] =  conditions.loc[:,'inner_avg_albedo'].apply(lambda x: -1 if x=='None' else x) # --- replace empty pump file with -1        
@@ -189,10 +200,11 @@ class Sol(DatasetBase):
 
         float_conditions = float_conditions.dropna()
         index = float_conditions.index
-        mean = float_conditions.values.mean(axis=0)
-        scaled = float_conditions.values-mean
-        std = scaled.std(axis=0)
-        float_conditions = pd.DataFrame(scaled / std, columns=float_conditions.columns, dtype=np.float16, index=index)
+        self.mean_conditions = float_conditions.values.mean(axis=0)
+        scaled = float_conditions.values-self.mean_conditions
+        self.std_conditions = scaled.std(axis=0)
+        self.scaling_stats_conditions = {name: {"mean": mean, "std": std} for name, mean, std in zip(float_conditions.columns, self.mean_conditions, self.std_conditions)}
+        float_conditions = pd.DataFrame(scaled / self.std_conditions, columns=float_conditions.columns, dtype=np.float16, index=index)
         conditions = pd.concat([float_conditions, integer_conditions], axis=1)
         conditions = pd.merge(metadata, conditions, left_index=True, right_index=True)
         return conditions
@@ -218,8 +230,15 @@ class Sol(DatasetBase):
         return np.array(self.conditioning_vars)
     
     def scale2d(self, tmp, name):
-        tmp -= self.scaling_stats[name]["mean"]
-        tmp /= self.scaling_stats[name]["std"]
+        print(self.scaling_strategy)
+        if self.scaling_strategy == 'standardscaler':
+            tmp -= self.scaling_stats[name]["mean"]
+            tmp /= self.scaling_stats[name]["std"]
+        elif self.scaling_strategy == 'minmaxscaler':
+            tmp -= self.scaling_stats[name]["min"]
+            tmp /= (self.scaling_stats[name]["max"] - self.scaling_stats[name]["min"])
+        else:
+            raise ValueError(f"Unsupported scaling strategy: {self.scaling_strategy}")
         return tmp
     
     # NOTE: using iloc instead of loc as the index is not the same as the index of the conditions dataframe
@@ -230,9 +249,11 @@ class Sol(DatasetBase):
     def getitem_target(self, idx, ctx=None):
         # --- TODO: to be updated to actual target        
         with h5py.File(self.uris[idx], 'r') as h5file:
-            tmp = np.array(list(h5file[f"targets2d"]["electron_temp_2d"]))
+            tmp = np.array(list(h5file[f"targets2d"][self.target_name]))
+        #if 'radiation' in self.target_name:
+        tmp = np.log10(np.abs(tmp)+1)
         tmp = torch.from_numpy(tmp)
-        tmp = self.scale2d(tmp,"electron_temp_2d")
+        tmp = self.scale2d(tmp,self.target_name)
         return tmp     
 
     def getitem_ni_sep_lfs(self, idx, ctx=None): 
@@ -291,7 +312,7 @@ class Sol(DatasetBase):
         tmp = torch.tensor(tmp)
         return tmp
 
-    # ========= EDGE2D inputs =========
+    # ========= EDGE2D 2D inputs =========
     def getitem_psin(self, idx, ctx=None):
         with h5py.File(self.uris[idx], 'r') as h5file:
             tmp = np.array(list(h5file[f"inputs2d"]["psin"]))
@@ -335,6 +356,7 @@ class Sol(DatasetBase):
         input_features = torch.stack([sh, b_toroidal, psin], dim=-1)
         return input_features
 
+    
     def getitem_particle_flux_total_s1(self, idx, ctx=None): 
         tmp = self.conditions.loc[self.idx_of_sim_idx[idx]]["particle_flux_total_s1"]
         tmp = torch.tensor(tmp)
@@ -347,6 +369,11 @@ class Sol(DatasetBase):
 
     def getitem_psep_ions(self, idx, ctx=None): 
         tmp = self.conditions.loc[self.idx_of_sim_idx[idx]]["psep_ions"]
+        tmp = torch.tensor(tmp)
+        return tmp
+    
+    def getitem_power(self, idx, ctx=None): 
+        tmp = self.conditions.loc[self.idx_of_sim_idx[idx]]["power"]
         tmp = torch.tensor(tmp)
         return tmp
     
@@ -370,8 +397,6 @@ class Sol(DatasetBase):
         tmp = torch.tensor(tmp)
         tmp = torch.tensor(tmp, dtype=torch.int8)
         return tmp    
-
-
 
     def getitem_d_perp(self, idx, ctx=None): 
         tmp = self.conditions.loc[self.idx_of_sim_idx[idx]]["d_perp"]

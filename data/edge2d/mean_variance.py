@@ -14,22 +14,25 @@ def process(file,h5_group,var_name):
         tmp = np.array(list(f[h5_group][var_name]))
     if "density" in var_name:
         tmp /= 1e19
+    if "radiation" in var_name or "electron_temp" in var_name:
+        tmp = np.log10(np.abs(tmp)+1)
 
     return tmp
 
 def main():
     """
-    Calculate mean and std of each variable in the dataset
+    Calculate nanmean and std of each variable in the dataset
     and store it in a pickle file in a standardised location
     """
-    target_names = ['electron_density_2d',
-                    'electron_temp_2d',
-                    'ion_density_2d',
-                    'ion_temp_2d',
-                    'neutral_atom_density_2d',
-                    'neutral_atom_temperature_2d',
-                    'neutral_molecule_density_2d',
-                    'neutral_molecule_temperature_2d']
+    target_names = ['electron_temp_2d', 
+ #                   'ion_density_2d',
+ #                   'ion_temp_2d',
+  #                  'neutral_atom_density_2d',
+   #                 'neutral_atom_temperature_2d',
+    #                'neutral_molecule_density_2d',
+                    'carbon_radiation',
+                    'hydrogenic_radiation']
+     #               'neutral_molecule_temperature_2d']
     input_names = ['b_toroidal',
                 'psin',
                 'sh',
@@ -51,7 +54,7 @@ def main():
         with Pool(52) as pool:
             var = pool.map(partial_process, files)
         var = np.hstack(var)
-        stats[input_name] = {'mean':var.mean(), 'std':var.std()}
+        stats[input_name] = {'mean':var.mean(), 'std':var.std(), 'min':var.min(), 'max':var.max()}
     
     for var_name in target_names:
         print(var_name)
@@ -59,7 +62,7 @@ def main():
         with Pool(52) as pool:
             var = pool.map(partial_process, files)
         var = np.hstack(var)
-        stats[var_name] = {'mean':var.mean(), 'std':var.std()}
+        stats[var_name] = {'mean':var.mean(), 'std':var.std(), 'min':var.min(), 'max':var.max()}
 
 
     for coord_name in coords:
@@ -70,7 +73,7 @@ def main():
         var = np.hstack(var)
         stats[coord_name] = {'max':var.max(), 'min':var.min()}
        
-        print(stats[coord_name]) 
+        print(stats) 
     
         
 

@@ -12,7 +12,7 @@ class OnlineLossCallback(PeriodicCallback):
         self.verbose = verbose
         self.tracked_losses = defaultdict(list)
 
-    def _track_after_accumulation_step(self, losses, **kwargs):
+    def _track_amufter_acculation_step(self, losses, **kwargs):
         for name, loss in losses.items():
             self.tracked_losses[name].append(loss.item())
 

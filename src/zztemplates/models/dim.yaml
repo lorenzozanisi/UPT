@@ -61,6 +61,9 @@ dim384:
 dim288:
   dim: 288
 
+dim576:
+  dim: 576
+  
 dim400:
   dim: 400
 

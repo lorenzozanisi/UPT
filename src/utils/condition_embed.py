@@ -30,7 +30,7 @@ class ContinuousConditionEmbed(nn.Module):
             "omega",
             1.0 / max_wavelength ** (torch.arange(0, cond_per_wave, 2) / cond_per_wave),
         )
-        self.cond_dim =  dim
+        self.cond_dim =  dim*4
         self.mlp = nn.Sequential(
             nn.Linear(dim, self.cond_dim),
             nn.SiLU(),
@@ -56,15 +56,12 @@ class ContinuousConditionEmbed(nn.Module):
             cond = cond.unsqueeze(-1)
         
         cond = cond.view((cond.shape[-1], -1))
-        logging.info(f'cond shape {cond.shape}')
         #   assert self.n_cond == cond.shape[-1], f"{self.n_cond} != {cond.shape[-1]}"
         #print(cond, self.omega)
         #exit(0)
         out = cond.unsqueeze(-1).type(self.omega.dtype) @ self.omega.unsqueeze(0)
         emb = torch.concat([torch.sin(out), torch.cos(out)], dim=-1)
-        logging.info(f'cond 1 shape {cond.shape}')
         emb = rearrange(emb, "... ncond cdim -> ... (ncond cdim)")
-        logging.info(f'emb 2 shape {cond.shape}')
         # if self.padding > 0:
         #     padding = torch.zeros(
         #         *emb.shape[:-1], self.padding, device=emb.device, dtype=emb.dtype
@@ -80,6 +77,8 @@ def seq_weight_init(weight_init_fn, bias_init_fn=None):
     def _apply(m):
         if isinstance(m, nn.Linear):
             weight_init_fn(m.weight)
+
+            
             if hasattr(m, "bias") and m.bias is not None:
                 bias_init_fn(m.bias)
 

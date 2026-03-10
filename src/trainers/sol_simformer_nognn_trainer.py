@@ -47,7 +47,7 @@ class SolSimformerNognnTrainer(SgdTrainer):
         dataset, collator = self.data_container.get_dataset("train", mode="target")
         assert isinstance(collator.collator, SolSimformerNognnCollator )
         output_shape = dataset.getshape_target()
-        self.logger.info(f"output_shape: {output_shape}")
+
         return output_shape
 
     @cached_property
@@ -95,7 +95,6 @@ class SolSimformerNognnTrainer(SgdTrainer):
                         ) 
                         for var_name in self.trainer.conditioning_vars_names
                     )
-                logging.info(f'conditoining dictionary: {conditioning}')
                 conditioning_float = {k:v for k,v in conditioning.items() if v.dtype!= torch.int8}
                 conditioning_int = {k:v for k,v in conditioning.items() if v.dtype== torch.int8}
                 conditioning_float = torch.stack(list(conditioning_float.values())) #.to(self.model.device)  
@@ -122,7 +121,6 @@ class SolSimformerNognnTrainer(SgdTrainer):
             # TODO: target definition should be in yaml file
             target = data.pop("target")
 
-            print('Conditioninsg in trainer forward: ', conditioning)
             # forward pass
             model_outputs = self.model(conditioning=conditioning,**data)
             loss = self.trainer.loss_function(

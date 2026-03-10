@@ -6,14 +6,14 @@ vars:
   batch_size: 16
   max_batch_size: 32
   epochs: 5000
-    
+  target_name: electron_temp_2d
+  scaling_strategy: minmaxscaler    
   conditioning_vars:
       - puff_location_encoded
-      - psep_ions
-      - psep_elec
+      - power
       - deuterium_puff_values
   conditioning_vars_fname: matched_full_dataframe.pkl
-  cond_dim: 4
+  cond_dim: 3
   smoke_test: False
   optim:
     kind: adamw
@@ -30,7 +30,9 @@ datasets:
     #num_input_points_ratio: None #[ 0.8, 1.0 ]
     conditioning_vars: ${vars.conditioning_vars}
     conditioning_vars_fname: ${vars.conditioning_vars_fname}
+    target_name: ${vars.target_name}
     smoke_test: ${vars.smoke_test} 
+    scaling_strategy: ${vars.scaling_strategy}
     collators:
       - kind: sol_simformer_nognn_collator
   test: 
@@ -39,6 +41,8 @@ datasets:
     conditioning_vars: ${vars.conditioning_vars}
     conditioning_vars_fname: ${vars.conditioning_vars_fname}
     smoke_test: ${vars.smoke_test}
+    target_name: ${vars.target_name}
+    scaling_strategy: ${vars.scaling_strategy}
     collators:
       - kind: sol_simformer_nognn_collator
 
@@ -48,12 +52,12 @@ model:
   conditioner:
     kind: conditioners.sol_conditioner_mixed_integer
     kwargs:
-      dim: ${select:dim288:${yaml:models/dim}}
+      dim: ${select:dim576:${yaml:models/dim}}
     optim: ${vars.optim}
     cond_dim: ${vars.cond_dim}
   model:
     kind: extractors.transformer_model_sol
-    kwargs: ${select:dim288depth2:${yaml:models/latent/transformer}}
+    kwargs: ${select:dim576depth6:${yaml:models/latent/transformer}}
     optim: ${vars.optim}
     drop_path_rate: 0.3
     drop_path_decay: false
@@ -68,7 +72,7 @@ trainer:
   loss_function:
     kind: elementwise_loss
     loss_function:
-      kind: mse_loss
+      kind: l1_loss
   log_every_n_epochs: 1
   callbacks:
     - kind: offline_loss_callback

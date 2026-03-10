@@ -78,7 +78,6 @@ class TransformerModelSol(SingleModelBase):
         # concat static tokens
         # if static_tokens is not None:
         #     x = torch.cat([static_tokens, x], dim=1)
-        logging.info(f"In model 1: x shape: {x.shape}")
 
         x, mask = to_dense_batch(x, batch_idx)
         if torch.all(mask):
@@ -91,14 +90,10 @@ class TransformerModelSol(SingleModelBase):
         blk_kwargs = {}
         if condition is not None:
             blk_kwargs["cond"] = condition
-        logging.info(f"In model: x shape: {x.shape}, mask shape: {mask.shape if mask is not None else None}")
-            
-        logging.info(f'x shape before blocks is {x.shape}')
-        logging.info(f'cond shape before blocks {condition.shape}')
+ 
 
         for blk in self.blocks:
             x = blk(x, attn_mask=mask, **blk_kwargs)
-            print('x shape is', x.shape)
 
         return x
 
