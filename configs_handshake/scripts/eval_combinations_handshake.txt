@@ -1,0 +1,21 @@
+# Columns: model_name trained_on variable yaml_name plots_name conditioning_vars_fname
+# One row = evaluate one trained model on one END's test split.
+# Rows 1-9  : single-END models x single-END test sets -> these 9 make up the handshake plot.
+# Rows 10-15: two-END models (on their own pair, and on the held-out END). Evaluated in April but
+#             NOT shown in the plot (code/plot_handshake.py skips any path containing CD_ED/CD_SX/ED_SX).
+# Replace the run IDs with your own wandb run IDs if you retrain.
+7lfha3pj trained_on_CD electron_temp_2d results_CD.yaml CD_on_CD matched_full_dataframe_CD.pkl
+7lfha3pj trained_on_CD electron_temp_2d results_ED.yaml CD_on_ED matched_full_dataframe_ED.pkl
+7lfha3pj trained_on_CD electron_temp_2d results_SX.yaml CD_on_SX matched_full_dataframe_SX.pkl
+y29ev43n trained_on_ED electron_temp_2d results_CD.yaml ED_on_CD matched_full_dataframe_CD.pkl
+y29ev43n trained_on_ED electron_temp_2d results_ED.yaml ED_on_ED matched_full_dataframe_ED.pkl
+y29ev43n trained_on_ED electron_temp_2d results_SX.yaml ED_on_SX matched_full_dataframe_SX.pkl
+qu9oetk6 trained_on_SX electron_temp_2d results_CD.yaml SX_on_CD matched_full_dataframe_CD.pkl
+qu9oetk6 trained_on_SX electron_temp_2d results_ED.yaml SX_on_ED matched_full_dataframe_ED.pkl
+qu9oetk6 trained_on_SX electron_temp_2d results_SX.yaml SX_on_SX matched_full_dataframe_SX.pkl
+9hwspgcf trained_on_CD_ED electron_temp_2d results_CD_ED.yaml CD_ED_on_CD_ED matched_full_dataframe_CD_ED.pkl
+9hwspgcf trained_on_CD_ED electron_temp_2d results_SX.yaml CD_ED_on_SX matched_full_dataframe_SX.pkl
+1o8dpc9v trained_on_CD_SX electron_temp_2d results_CD_SX.yaml CD_SX_on_CD_SX matched_full_dataframe_CD_SX.pkl
+1o8dpc9v trained_on_CD_SX electron_temp_2d results_ED.yaml CD_SX_on_ED matched_full_dataframe_ED.pkl
+lut2i47r trained_on_ED_SX electron_temp_2d results_ED_SX.yaml ED_SX_on_ED_SX matched_full_dataframe_ED_SX.pkl
+lut2i47r trained_on_ED_SX electron_temp_2d results_CD.yaml ED_SX_on_CD matched_full_dataframe_CD.pkl

@@ -1,0 +1,128 @@
+diff --git a/src/datasets/sol.py b/src/datasets/sol.py
+index 0fe9315..97ba82d 100644
+--- a/src/datasets/sol.py
++++ b/src/datasets/sol.py
+@@ -36,6 +36,7 @@ class Sol(DatasetBase):
+             conditioning_vars_fname=None,
+             target_name="electron_temp_2d",
+             scaling_strategy='standardscaler',
++            scaling_stats=None,
+             smoke_test=False,
+             **kwargs,
+     ):
+@@ -58,6 +59,7 @@ class Sol(DatasetBase):
+             conditioning_vars_fname (str): Name of the pickle file containing the conditioning variables. Passed in the yaml file.
+             target_name (str): Name of the target variable to predict. Passed in the yaml file.
+             scaling_strategy (str): Strategy for scaling the input and target variables. Passed in the yaml file (e.g. "standardscaler", "minmaxscaler", etc.). --- IGNORE for now, to be implemented in the future ---
++            scaling_stats (str): Name of the pickle file containing the scaling statistics. Passed in the yaml file.
+             **kwargs: Additional arguments.
+         """
+         super().__init__(**kwargs)
+@@ -108,7 +110,7 @@ class Sol(DatasetBase):
+         assert self.source_root.exists(), f"'{self.source_root.as_posix()}' doesn't exist"
+         assert self.source_root.name == "preprocessed", f"'{self.source_root.as_posix()}' is not preprocessed folder"
+ 
+-        with open(self.source_root / "stats.pkl", "rb") as f:
++        with open(self.source_root / scaling_stats, "rb") as f:
+             self.scaling_stats = pickle.load(f)
+ 
+         # discover uris
+@@ -590,8 +592,9 @@ class Sol(DatasetBase):
+         # rescale for sincos positional embedding
+      #   all_pos.sub_(self.scaling).div_(self.domain_max - self.domain_min).mul_(self.scale)
+        
+-        assert torch.all(0 <=all_pos)
+-        assert torch.all(all_pos <= self.scale)
++        if self.split == "train":
++            assert torch.all(0 <=all_pos) # 
++            assert torch.all(all_pos <= self.scale)
+         if ctx is not None:
+             ctx["all_pos"] = all_pos
+         return all_pos
+diff --git a/src/models/composite/sol_simformer_nolatent_model.py b/src/models/composite/sol_simformer_nolatent_model.py
+new file mode 100644
+index 0000000..0132573
+--- /dev/null
++++ b/src/models/composite/sol_simformer_nolatent_model.py
+@@ -0,0 +1,81 @@
++from models import model_from_kwargs
++from models.base.composite_model_base import CompositeModelBase
++from utils.factory import create
++import torch
++import einops 
++from torch_geometric.utils import unbatch
++
++class SolSimformerNolatentModel(CompositeModelBase):
++    def __init__(
++            self,
++            model,
++            conditioner=None,
++            **kwargs,
++    ):
++        super().__init__(**kwargs)
++        common_kwargs = dict(
++            update_counter=self.update_counter,
++            path_provider=self.path_provider,
++            dynamic_ctx=self.dynamic_ctx,
++            static_ctx=self.static_ctx,
++            data_container=self.data_container,
++        )
++
++        # conditioner
++        if conditioner is not None:
++            self.conditioner = create(
++                conditioner,
++                model_from_kwargs,
++                input_shape=self.input_shape,
++                **common_kwargs,
++            )        
++        else:
++            self.conditioner = None
++
++        common_kwargs["static_ctx"]["condition_dim"] = self.conditioner.condition_embed.mlp[-2].out_features
++        # encoder
++        self.model = create(
++            model,
++            model_from_kwargs,
++            input_shape=self.input_shape,
++            input_features_shape=self.input_features_shape, 
++            output_shape=self.output_shape,
++            **common_kwargs,
++        )
++
++    
++    @property
++    def submodels(self):
++        if self.conditioner is not None:
++            return dict(
++                conditioner=self.conditioner,
++                model=self.model
++            )
++        else:
++            return dict(
++                model=self.model,
++            )
++
++    # noinspection PyMethodOverriding
++    def forward(self, conditioning, mesh_pos, query_pos, input_features, batch_idx, unbatch_idx, unbatch_select):
++        outputs = {}
++        # encode data
++        if self.conditioner is not None:
++            condition = self.conditioner(conditioning) 
++        else:
++            condition = None
++
++        x_hat = self.model(input_features=input_features, mesh_pos=mesh_pos, batch_idx=batch_idx, condition=condition)
++        outputs["x_hat"] = x_hat
++
++
++        x = self.model.norm(x_hat)
++        x = self.model.output_proj(x)
++        # dense tensor (batch_size, max_num_points, dim) -> sparse tensor (batch_size * num_points, dim)
++        x = einops.rearrange(x, "batch_size max_num_points dim -> (batch_size max_num_points) dim")
++        unbatched = unbatch(x, batch=unbatch_idx)
++        x = torch.concat([unbatched[i] for i in unbatch_select])
++        #exit(0)        
++        outputs["x_hat"] = x
++
++        return outputs
