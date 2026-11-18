@@ -1,0 +1,118 @@
+from functools import partial
+
+import einops
+import torch
+from kappamodules.layers import ContinuousSincosEmbed
+from kappamodules.transformer import PerceiverPoolingBlock, Mlp, PerceiverPoolingBlock, DitPerceiverPoolingBlock
+from torch import nn
+from torch_geometric.utils import to_dense_batch
+from modules.gno.supernode_pooling import SupernodePooling
+from models.base.single_model_base import SingleModelBase
+from optimizers.param_group_modifiers.exclude_from_wd_by_name_modifier import ExcludeFromWdByNameModifier
+
+
+class SolGNN(SingleModelBase):
+    def __init__(
+            self,
+            dim,
+            num_attn_heads,
+            num_output_tokens,
+            add_type_token=False,
+            init_weights="xavier_uniform",
+            init_last_proj_zero=False,
+            cond_dim=None,
+            **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.dim = dim # dimension of the embedding space
+        self.num_attn_heads = num_attn_heads
+        self.num_output_tokens = num_output_tokens
+        self.add_type_token = add_type_token
+
+        # set ndim
+        _, ndim = self.input_shape # dimension of the mesh (ie 2 or 3)
+        _, n_features = self.input_features_shape # number of features per node
+        self.static_ctx["ndim"] = ndim
+
+        # pos_embed
+        self.pos_embed = ContinuousSincosEmbed(dim=dim, ndim=ndim)
+        # linear projection of input features
+        self.input_proj = nn.Linear(n_features, dim, bias=False) #Mlp(in_dim=n_features, hidden_dim=dim * 4, init_weights=init_weights) #
+        #self.inpu_proj = nn.Sequential(
+        #    nn.Linear(n_features, dim, bias=False),
+        #    nn.ReLu(),
+        #    nn.Linear(dim, dim, bias=False),
+        # perceiver
+        self.mlp = Mlp(in_dim=dim, hidden_dim=dim * 4, init_weights=init_weights)
+        if "condition_dim" in self.static_ctx:
+            block_ctor = partial(
+                    DitPerceiverPoolingBlock,
+                    perceiver_kwargs=dict(
+                    cond_dim=self.static_ctx["condition_dim"],
+                    init_weights=init_weights,
+                ),
+            )
+        else:
+            block_ctor = partial(
+                PerceiverPoolingBlock,
+                perceiver_kwargs=dict(init_weights=init_weights),
+            )
+
+        # self.block = PerceiverPoolingBlock(
+        #     dim=dim,
+        #     num_heads=num_attn_heads,
+        #     num_query_tokens=num_output_tokens,
+        #     perceiver_kwargs=dict(
+        #         init_weights=init_weights,
+        #         init_last_proj_zero=init_last_proj_zero,
+        #     ),
+        # )
+
+        self.block = block_ctor(
+            dim=dim,
+            num_heads=num_attn_heads,
+            num_query_tokens=num_output_tokens,
+        )            
+
+        if add_type_token:
+            self.type_token = nn.Parameter(torch.empty(size=(1, 1, dim,)))
+        else:
+            self.type_token = None
+
+        # output shape
+        self.output_shape = (num_output_tokens, dim)
+
+    def model_specific_initialization(self):
+        if self.add_type_token:
+            nn.init.trunc_normal_(self.type_token)
+
+    def get_model_specific_param_group_modifiers(self):
+        modifiers = [ExcludeFromWdByNameModifier(name="block.query")]
+        if self.add_type_token:
+            modifiers += [ExcludeFromWdByNameModifier(name="type_token")]
+        return modifiers
+
+    def forward(self, input_features, mesh_pos, batch_idx, condition=None, mesh_edges=None):
+        x = self.pos_embed(mesh_pos)
+        input_features = self.input_proj(input_features)
+        x = x + input_features
+        # print(f"SolPerceiver: x shape: {x.shape}")
+        x, mask = to_dense_batch(x, batch_idx)
+        # print(f"SolPerceiver: x shape: {x.shape}, mask shape: {mask.shape if mask is not None else None}")
+        if torch.all(mask):
+            mask = None
+        else:
+            # add dimensions for num_heads and query (keys are masked)
+            mask = einops.rearrange(mask, "batchsize num_nodes -> batchsize 1 1 num_nodes")
+
+        block_kwargs = {}
+        if condition is not None:
+            block_kwargs["cond"] = condition
+        # perceiver - NOTE: attn_mask is not used in the cfd cases? What's attn mask?
+      #  x = self.mlp(x)
+        x = self.block(kv=x, attn_mask=mask, **block_kwargs) 
+
+        if self.add_type_token:
+            x = x + self.type_token
+
+        return x
